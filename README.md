@@ -1,4 +1,4 @@
-# AlphaZero_Ultimate_TTT
+# AlphaZero Ultimate Tic-Tac-Toe
 ## TODO
 - Implement Game Environment
 - Implement the AlphaZero Framework
