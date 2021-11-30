@@ -1,7 +1,8 @@
 import numpy as np
 from termcolor import colored
-from player import RandomPlayer, Player
+from player import RandomPlayer, HumanPlayer, Player
 class UltimateTTT:
+
     def __init__(self, player1:Player, player2:Player) -> None:
         # player x : 1, player o: -1, empty: 0
         self.inner_board = np.zeros((9,9))
@@ -19,16 +20,34 @@ class UltimateTTT:
         self.player_o = player2
 
     '''
-    The play function that implements the game loop
+    The play function that implements the game loop.
     '''
     def play(self):
         while not self.game_end:
-            if self.current_player == 1:
-                print("Player x's turn to make a move:")
-                move = self.player_x.move(self.inner_board, self.next_valid_move)
-            else:
-                print("Player o's turn to make a move:")
-                move = self.player_o.move(self.inner_board, self.next_valid_move)
+            # print the board
+            print("The inner board:\n")
+            self.display_board(board='inner')
+            print()
+            print("The outer board:\n")
+            self.display_board(board='outer')
+            print()
+
+            # check the player
+            player = 'x' if self.current_player == 1 else 'o'
+            
+            print(f"Player {player}'s turn to make a move:\n")         
+
+            # display the valid next moves
+            self.display_valid_moves()
+
+            # make a move
+            move = self.make_move()
+            coordinate = self.map_coordinate(move,board='inner')
+
+            # print a line of separation
+            self.print_line(color = True, length='very long')
+            
+            print(f'Player {player} played position {coordinate}.\n')
             
             # update previous move
             self.previous_move = move
@@ -41,17 +60,22 @@ class UltimateTTT:
             # switch player
             self.switch()
             
-            self.display_board()
-            print()
-        
+            
+        print(colored("Game over!\n", 'green', attrs=['bold']))
+        # display result
         if self.winner == 1:
-            print('The winner is player x!')
+            print(colored('The winner is player x!\n','green',attrs=['bold']))
         elif self.winner == -1:
-            print('The winner is player o!')
+            print(colored('The winner is player o!\n','green',attrs=['bold']))
         else:
-            print('The game is a draw.')
-        
-        print(self.outer_board)
+            print(colored('The game is a draw.\n','green',attrs=['bold']))
+
+        # print the board
+        print("The inner board:\n")
+        self.display_board(board='inner')
+        print()
+        print("The outer board:\n")
+        self.display_board(board='outer')
 
     '''
     return the move chosen by the current player
@@ -60,7 +84,7 @@ class UltimateTTT:
         if self.current_player == 1:
             candidate_move = self.player_x.move(board = self.inner_board, valid_moves = self.next_valid_move)
             while candidate_move not in self.next_valid_move:
-                print('The move you specified is not valid. Try again!')
+                print('The move you specified is not valid. Try again!\n')
                 candidate_move = self.player_x.move(board = self.inner_board, valid_moves = self.next_valid_move)
             
             return candidate_move
@@ -68,13 +92,13 @@ class UltimateTTT:
         else:
             candidate_move = self.player_o.move(board = self.inner_board*-1, valid_moves= self.next_valid_move)
             while candidate_move not in self.next_valid_move:
-                print('The move you specified is not valid. Try again!')
+                print('The move you specified is not valid. Try again!\n')
                 candidate_move = self.player_o.move(board = self.inner_board*-1, valid_moves = self.next_valid_move)
             
             return candidate_move
     
     '''
-    take a 3x3 board as an argumen, return the following:
+    take a 3x3 board as an argument, return the following:
     1 if player x has won this board
     -1 of player o has won this board
     2 if both players tie in this board
@@ -116,6 +140,7 @@ class UltimateTTT:
         else:
             return 2
 
+
     '''
     update the inner and outer board states based on the move
     '''
@@ -128,6 +153,7 @@ class UltimateTTT:
         sub_board = self.inner_board[outer_row*3:outer_row*3 + 3, outer_col*3:outer_col*3 + 3]
         self.outer_board[outer_row, outer_col] = self.check_board(sub_board)
     
+
     '''
     update the valid moves based on the previous move
     '''
@@ -172,6 +198,12 @@ class UltimateTTT:
             self.winner = res
             self.game_end = True
     
+    '''
+    switch the current player
+    '''
+    def switch(self):
+       self. current_player = self.current_player*-1
+
 
     '''
     Helper function that maps move (0-80) to board coordinates
@@ -199,43 +231,109 @@ class UltimateTTT:
     def map_value(self, row, col):
         return row*9 + col
 
-    # swtich player
-    def switch(self):
-       self. current_player = self.current_player*-1
-
-    # helper method to print a horizontal line
-    def print_line(self, color = False):
-        if color:
-            print(colored(' ---'*9, 'yellow'))
-        else:
-            print(' ---'*9)
-
-    # print the board to the console
-    def display_board(self):
-        for i, row in enumerate(self.inner_board):
-            # print horizontal line
-            if i % 3 == 0:
-                self.print_line(color=True)
-            else:
-                self.print_line(color=False)
-
-            # print markers and vertical lines
-            for j,item in enumerate(row):
-                print(colored('|', 'yellow'),end='') if j % 3 == 0 else print('|', end='')
-                if item == 1:
-                    print(colored(' x ','cyan'), end='')
-                elif item == -1:
-                    print(colored(' o ','magenta'), end='')
-                else:
-                    print('   ', end='')
-            print(colored('|', 'yellow'))
-
-        # print bottom line
-        self.print_line(color=True)
-                
     
+    '''
+    Helper function to print a horizontal line
+    color: swtich the color on and off
+    length: very long for game turn separation, long for inner board, short for outer board
+    '''
+    def print_line(self, color = False, length = 'long'):
+        if length == 'long':
+            print("  ",end='')
+            if color:
+                print(colored(' ---'*9, 'yellow'))
+            else:
+                print(' ---'*9)
+        elif length == 'short':
+            print("  ",end='')
+            if color:
+                print(colored(' ---'*3, 'yellow'))
+            else:
+                print(' ---'*3)
+        elif length == 'very long':
+            if color:
+                print(colored('='*100, 'red',attrs=['bold']))
+            else:
+                print('-'*30)
+        else:
+            raise ValueError('Line length not recognized.')
+
+    '''
+    display the valid moves in coordinates of the inner board
+    '''
+    def display_valid_moves(self):
+        valid_move_coord = map(self.map_coordinate, self.next_valid_move, ['inner']*len(self.next_valid_move))
+        valid_move_coord = map(str, list(valid_move_coord))
+        valid_move_coord = ' '.join(valid_move_coord)
+        print('valid positions: ' + valid_move_coord + '\n')
+    '''
+    display the selected board to the console
+    '''
+    def display_board(self, board = 'inner'):
+        if board == 'inner':
+            # print col number
+            indices = map(str, list(range(9)))
+            indices = "   ".join(indices)
+            indices = "    "+ indices
+            print(indices)
+
+            for i, row in enumerate(self.inner_board):
+                # print horizontal line
+                if i % 3 == 0:
+                    self.print_line(color=True)
+                else:
+                    self.print_line(color=False)
+                
+                # print row number
+                print(i,end=" ")
+
+                # print markers and vertical lines
+                for j,item in enumerate(row):
+                    print(colored('|', 'yellow'),end='') if j % 3 == 0 else print('|', end='')
+                    if item == 1:
+                        print(colored(' x ','cyan'), end='')
+                    elif item == -1:
+                        print(colored(' o ','magenta'), end='')
+                    else:
+                        print('   ', end='')
+                print(colored('|', 'yellow'))
+
+            # print bottom line
+            self.print_line(color=True)
+
+        elif board == 'outer':
+            # print the col numbers
+            indices = map(str, list(range(3)))
+            indices = "   ".join(indices)
+            indices = "    "+ indices
+            print(indices)
+
+            for i, row in enumerate(self.outer_board):
+                # print horizontal line
+                self.print_line(color=True, length= 'short')
+                
+                # print the row numbers
+                print(i,end=" ")
+
+                # print markers and vertical lines
+                for j,item in enumerate(row):
+                    print(colored('|', 'yellow'),end='')
+                    if item == 1:
+                        print(colored(' x ','cyan'), end='')
+                    elif item == -1:
+                        print(colored(' o ','magenta'), end='')
+                    else:
+                        print('   ', end='')
+                print(colored('|', 'yellow'))
+
+            # print bottom line
+            self.print_line(color=True, length='short')
+        else:
+            raise ValueError('Board name not recognized.')
+    
+
 def main():
-    p1 = RandomPlayer()
+    p1 = HumanPlayer()
     p2 = RandomPlayer()
     game = UltimateTTT(player1=p1, player2=p2)
     game.play()
