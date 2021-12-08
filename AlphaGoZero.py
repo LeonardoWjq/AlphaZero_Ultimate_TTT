@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 # https://discovery.ucl.ac.uk/id/eprint/10045895/1/agz_unformatted_nature.pdf
 class ConvolutionalBlock(nn.Module):
@@ -11,7 +12,7 @@ class ConvolutionalBlock(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         x = self.bnorm(x)
-        x = nn.ReLU(x)
+        x = F.relu(x)
         return x
 
 class ResidualBlock(nn.Module):
@@ -27,13 +28,13 @@ class ResidualBlock(nn.Module):
 
         x = self.conv1(x)
         x = self.bnorm1(x)
-        x = nn.ReLU(x)
+        x = F.relu(x)
 
         x = self.conv2(x)
         x = self.bnorm2(x)
         
         x = x + residual
-        x = nn.ReLU(x)
+        x = F.relu(x)
 
         return x
 
@@ -45,14 +46,14 @@ class DualHeaded(nn.Module):
         self.conv1 = nn.Conv2d(in_channels=256, out_channels=2, kernel_size=1, stride=1) 
         self.bnorm1 = nn.BatchNorm2d(2)
         # Then ReLU
-        self.fc1 = nn.Linear(TODO, TODO)
+        self.fc1 = nn.Linear(2*9*9, 9*9+1)
         self.log_probs = nn.LogSoftmax(dim=1)
         
         # Value Head
         self.conv2 = nn.Conv2d(in_channels=256, out_channels=1, kernel_size=1) 
         self.bnorm2 = nn.BatchNorm2d(1)
         # Then ReLU
-        self.fc2 = nn.Linear(TODO, 256)
+        self.fc2 = nn.Linear(9*9, 256)
         # Then ReLU
         self.fc3 = nn.Linear(256, 1)
         # Then tanh
@@ -62,24 +63,26 @@ class DualHeaded(nn.Module):
         # Policy
         pi = self.conv1(x)
         pi = self.bnorm1(pi)
-        pi = nn.ReLU(pi)
+        pi = F.relu(pi)
+        pi = pi.view(-1, 2*9*9)
         pi = self.fc1(pi)
         pi = self.log_probs(pi).exp()
 
         # Value
         v = self.conv2(x)
         v = self.bnorm2(v)
-        v = nn.ReLU(v)
+        v = F.relu(v)
+        v = v.view(-1, 9*9)
         v = self.fc2(v)
-        v = nn.ReLU(v)
+        v = F.relu(v)
         v = self.fc3(v)
         v = torch.tanh(v)
 
         return pi, v
 
-class AlphaGoZero(nn.Module):
+class Network(nn.Module):
     def __init__(self):
-        super(AlphaGoZero, self).__init__()
+        super(Network, self).__init__()
         self.conv_block = ConvolutionalBlock()
 
         for i in range(39):
