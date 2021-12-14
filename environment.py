@@ -1,99 +1,142 @@
 import numpy as np
+import player as ply
 from termcolor import colored
-from player import RandomPlayer, HumanPlayer, Player
+from tqdm import tqdm
+import time
 class UltimateTTT:
 
-    def __init__(self, player1:Player, player2:Player) -> None:
-        # player x : 1, player o: -1, empty: 0
-        self.inner_board = np.zeros((9,9))
-        # player x: 1, player o: -1, incomplete: 0, tie: 2
-        self.outer_board = np.zeros((3,3))
+    def __init__(self, player1, player2, state = None) -> None:
+        if state is not None:
+            self.inner_board = np.copy(state['inner'])
+            self.outer_board = np.copy(state['outer'])
+            self.current_player = state['current']
+            self.game_end = state['game_end']
+            self.winner = state['winner']
+            self.previous_move = state['previous']
+            self.next_valid_move = state['valid_move']
+        else:
+            # player x : 1, player o: -1, empty: 0
+            self.inner_board = np.zeros((9,9))
+            # player x: 1, player o: -1, incomplete: 0, tie: 2
+            self.outer_board = np.zeros((3,3))
 
-        self.current_player = 1
+            # player x: 1, player o:-1
+            self.current_player = 1
 
-        self.game_end = False
-        self.winner = None
+            self.game_end = False
+            self.winner = None
 
-        self.previous_move = None
-        self.next_valid_move = list(range(0,81))
+            self.previous_move = None
+            self.next_valid_move = list(range(0,81))
+
         self.player_x = player1
         self.player_o = player2
+
+
+    '''
+    return the current game state
+    '''
+    def get_state(self):
+        state = {
+            "inner":np.copy(self.inner_board),
+            "outer":np.copy(self.outer_board),
+            "current":self.current_player,
+            "game_end":self.game_end,
+            "winner":self.winner,
+            "previous":self.previous_move,
+            "valid_move":self.next_valid_move
+        }
+        return state
+    
+
+    '''
+    given the move, update the game state
+    '''
+    def update_game_state(self,move):
+        # update previous move
+        self.previous_move = move
+        # update board state
+        self.update_board(move)
+        # update next valid moves
+        self.update_valid_moves()
+        # check if there is a winner or draw
+        self.check_winner()
+        # switch player
+        self.switch()
+
 
     '''
     The play function that implements the game loop.
     '''
-    def play(self):
+    def play(self, display = False):
         while not self.game_end:
+            if display:
+                # print the board
+                print("The inner board:\n")
+                self.display_board(board='inner')
+                print()
+                print("The outer board:\n")
+                self.display_board(board='outer')
+                print()
+
+            # check the player
+            player = 'x' if self.current_player == 1 else 'o'
+            
+            if display:
+                print(f"Player {player}'s turn to make a move:\n")         
+                # display the valid next moves
+                self.display_valid_moves()
+
+            # make a move
+            move = self.make_move()
+            coordinate = self.map_coordinate(move,board='inner')
+
+            if display:
+                # print a line of separation
+                self.print_line(color = True, length='very long')
+            
+                print(f'Player {player} played position {coordinate}.\n')
+
+            # update game state
+            self.update_game_state(move)
+            
+            
+            
+        if display:    
+            print(colored("Game over!\n", 'green', attrs=['bold']))
+            # display result
+            if self.winner == 1:
+                print(colored('The winner is player x!\n','green',attrs=['bold']))
+            elif self.winner == -1:
+                print(colored('The winner is player o!\n','green',attrs=['bold']))
+            else:
+                print(colored('The game is a draw.\n','green',attrs=['bold']))
+
             # print the board
             print("The inner board:\n")
             self.display_board(board='inner')
             print()
             print("The outer board:\n")
             self.display_board(board='outer')
-            print()
-
-            # check the player
-            player = 'x' if self.current_player == 1 else 'o'
-            
-            print(f"Player {player}'s turn to make a move:\n")         
-
-            # display the valid next moves
-            self.display_valid_moves()
-
-            # make a move
-            move = self.make_move()
-            coordinate = self.map_coordinate(move,board='inner')
-
-            # print a line of separation
-            self.print_line(color = True, length='very long')
-            
-            print(f'Player {player} played position {coordinate}.\n')
-            
-            # update previous move
-            self.previous_move = move
-            # update board state
-            self.update_board(move)
-            # update next valid moves
-            self.update_valid_moves()
-            # check if there is a winner or draw
-            self.check_winner()
-            # switch player
-            self.switch()
-            
-            
-        print(colored("Game over!\n", 'green', attrs=['bold']))
-        # display result
-        if self.winner == 1:
-            print(colored('The winner is player x!\n','green',attrs=['bold']))
-        elif self.winner == -1:
-            print(colored('The winner is player o!\n','green',attrs=['bold']))
-        else:
-            print(colored('The game is a draw.\n','green',attrs=['bold']))
-
-        # print the board
-        print("The inner board:\n")
-        self.display_board(board='inner')
-        print()
-        print("The outer board:\n")
-        self.display_board(board='outer')
 
     '''
     return the move chosen by the current player
     '''
     def make_move(self):
+        current_state = self.get_state()
         if self.current_player == 1:
-            candidate_move = self.player_x.move(board = self.inner_board, valid_moves = self.next_valid_move)
+            candidate_move = self.player_x.move(current_state)
             while candidate_move not in self.next_valid_move:
                 print('The move you specified is not valid. Try again!\n')
-                candidate_move = self.player_x.move(board = self.inner_board, valid_moves = self.next_valid_move)
+                candidate_move = self.player_x.move(current_state)
             
             return candidate_move
 
         else:
-            candidate_move = self.player_o.move(board = self.inner_board*-1, valid_moves= self.next_valid_move)
+            candidate_move = self.player_o.move(current_state)
             while candidate_move not in self.next_valid_move:
                 print('The move you specified is not valid. Try again!\n')
-                candidate_move = self.player_o.move(board = self.inner_board*-1, valid_moves = self.next_valid_move)
+                candidate_move = self.player_o.move(current_state)
             
             return candidate_move
     
@@ -331,12 +374,30 @@ class UltimateTTT:
         else:
             raise ValueError('Board name not recognized.')
     
+    
 
 def main():
-    p1 = HumanPlayer()
-    p2 = RandomPlayer()
-    game = UltimateTTT(player1=p1, player2=p2)
-    game.play()
+    p1 = ply.MCTSPlayer(100)
+    p2 = ply.MCTSPlayer(100)
+    x_win = 0
+    o_win = 0
+    tie = 0
+
+    for _ in tqdm(range(20)):
+        game = UltimateTTT(player1=p1, player2=p2)
+        game.play()
+        final_state = game.get_state()
+        if final_state['winner'] == 1:
+            x_win+=1
+        elif final_state['winner'] == -1:
+            o_win+=1
+        elif final_state['winner'] == 2:
+            tie += 1
+    
+    print('number of wins for x:', x_win)
+    print('number of wins for o:', o_win)
+    print('number of ties:', tie)
+    
     
   
     # game.display_board()
