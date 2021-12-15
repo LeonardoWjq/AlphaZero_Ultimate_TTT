@@ -284,13 +284,13 @@ class UltimateTTT:
         if length == 'long':
             print("  ",end='')
             if color:
-                print(colored(' ---'*9, 'yellow'))
+                print(colored(' ---'*9, 'yellow',attrs=['bold']))
             else:
                 print(' ---'*9)
         elif length == 'short':
             print("  ",end='')
             if color:
-                print(colored(' ---'*3, 'yellow'))
+                print(colored(' ---'*3, 'yellow',attrs=['bold']))
             else:
                 print(' ---'*3)
         elif length == 'very long':
@@ -332,14 +332,14 @@ class UltimateTTT:
 
                 # print markers and vertical lines
                 for j,item in enumerate(row):
-                    print(colored('|', 'yellow'),end='') if j % 3 == 0 else print('|', end='')
+                    print(colored('|', 'yellow',attrs=['bold']),end='') if j % 3 == 0 else print('|', end='')
                     if item == 1:
                         print(colored(' x ','cyan'), end='')
                     elif item == -1:
                         print(colored(' o ','magenta'), end='')
                     else:
                         print('   ', end='')
-                print(colored('|', 'yellow'))
+                print(colored('|', 'yellow',attrs=['bold']))
 
             # print bottom line
             self.print_line(color=True)
@@ -360,14 +360,14 @@ class UltimateTTT:
 
                 # print markers and vertical lines
                 for j,item in enumerate(row):
-                    print(colored('|', 'yellow'),end='')
+                    print(colored('|', 'yellow',attrs=['bold']),end='')
                     if item == 1:
                         print(colored(' x ','cyan'), end='')
                     elif item == -1:
                         print(colored(' o ','magenta'), end='')
                     else:
                         print('   ', end='')
-                print(colored('|', 'yellow'))
+                print(colored('|', 'yellow',attrs=['bold']))
 
             # print bottom line
             self.print_line(color=True, length='short')
@@ -377,15 +377,16 @@ class UltimateTTT:
     
 
 def main():
-    p1 = ply.MCTSPlayer(100)
-    p2 = ply.MCTSPlayer(100)
+    p1 = ply.MCTSPlayer()
+    p2 = ply.HumanPlayer()
+   
     x_win = 0
     o_win = 0
     tie = 0
 
-    for _ in tqdm(range(20)):
+    for _ in tqdm(range(1)):
         game = UltimateTTT(player1=p1, player2=p2)
-        game.play()
+        game.play(True)
         final_state = game.get_state()
         if final_state['winner'] == 1:
             x_win+=1

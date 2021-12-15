@@ -1,19 +1,18 @@
 import player as ply
 import environment as env
-from policy import RandomPolicy
 import numpy as np
+from policy import RandomPolicy
+import time
+
+
 # The class for one TreeNode
-
-
 class TreeNode:
     '''
-    parent_node: the parent tree node object
     game_state: the current game state the tree node stores
     policy: a function that maps game states to action probabilities, used as prior
     simulation_player: the player that is used in simulation step
     '''
-    def __init__(self, parent_node, game_state: dict, policy, simulation_player):
-        self.parent = parent_node
+    def __init__(self,game_state: dict, policy, simulation_player):
         self.state = game_state
         self.policy = policy
         self.sim_player = simulation_player
@@ -24,6 +23,13 @@ class TreeNode:
         
         self.is_terminal = self.state['game_end']
     
+    '''
+    unroll from the node till the end of the game
+    return the game winner
+    x win: 1
+    o win: -1
+    draw: 2
+    '''
     def unroll(self):
         if self.is_terminal:
             return self.state['winner']
@@ -33,15 +39,15 @@ class TreeNode:
         return final_state['winner']
 
     '''
-    simulate once
-    return the game result 
+    get a list of actions that have the max values
+    prioritize the nodes that have not been expanded before
+    randomly sample one action from the candidates in case of a tie
+    return the sampled acton
     '''
-    def simulate(self):
-        # check if current is terminal state
-        if self.is_terminal:
-            return self.state['winner']
-        
+    def get_max_action(self):
+        # store maximum value
         max_val = float('-inf')
+        # store max actions
         max_actions = []
         for action, record in self.edges.items():
             # if the edge is never visited before
@@ -66,10 +72,27 @@ class TreeNode:
         
         # choose action to simulate
         action = np.random.choice(max_actions)
+
+        return action
+
+    '''
+    simulate and (possibly) grow the tree once
+    return the simulation result
+    x win: 1
+    o win: -1
+    tie: 2 
+    '''
+    def simulate(self):
+        # check if current is terminal state
+        if self.is_terminal:
+            return self.state['winner']
+        
+        # get the max action
+        action = self.get_max_action()
+
         # get the edge of that action
         edge = self.edges[action]
 
-        
         # grow the edge if it does not exist
         if edge['node'] is None:
             # get the updated state
@@ -78,7 +101,7 @@ class TreeNode:
             new_state = game.get_state()
 
             # create new tree node
-            new_node = TreeNode(self, new_state, self.policy, self.sim_player)
+            new_node = TreeNode(new_state, self.policy, self.sim_player)
             edge['node'] = new_node
             
             # unroll the new_node once
@@ -106,26 +129,112 @@ class TreeNode:
                 edge['total_val'] += result*current_player
             
             return result
-
-class MCTS:
-    def __init__(self, state:dict, policy, simulation_player) -> None:
-        self.root = TreeNode(None, state, policy, simulation_player)
     
-    def run_simumation(self, num = 2000):
+    '''
+    input a state
+    check if the state is identical to the state of itself
+    '''
+    def equal_state(self, state:dict):
+        
+        this_state = self.state
+        input_state = state
+
+        # if the inner boards have any difference
+        if (this_state['inner'] != input_state['inner']).any():
+            return False
+        
+        # if the outer boards have any difference
+        if (this_state['outer'] != input_state['outer']).any():
+            return False
+        
+        # if the current players are not the same
+        if this_state['current'] != input_state['current']:
+            return False
+        
+        # if the game end signals are not the same
+        if this_state['game_end'] != input_state['game_end']:
+            return False
+        
+        # if the winners are not the same
+        if this_state['winner'] != input_state['winner']:
+            return False
+        
+        # if the previous moves are not the same
+        if this_state['previous'] != input_state['previous']:
+            return False
+        
+        # if the valid moves are not the same
+        if this_state['valid_move'].sort() != input_state['valid_move'].sort():
+            return False
+        
+        # the two states are identical
+        return True
+
+
+
+
+
+
+# Monte Carlo Tree Search Class
+class MCTS:
+    # initialze attributes
+    def __init__(self, state:dict, policy, simulation_player) -> None:
+        self.root = TreeNode(state, policy, simulation_player)
+        self.pol = policy
+        self.sim_player = simulation_player
+
+    '''
+    input number of simulation steps
+    run simulations from the root (current) state
+    '''
+    def run_simumation(self, num = 500):
         for _ in range(num):
             self.root.simulate()
-    
+
+    '''
+    sample an action from the root state based on the probabilities from the simulation
+    ATTENTION: this method also changes the root node to the lastest game state resulted after taking the action provided it's not None
+    '''
     def get_move(self):
         actions = []
         visit_count = []
+        # store the actions and the corresponding visit counts
         for key, value in self.root.edges.items():
             actions.append(key)
             visit_count.append(value['count'])
         
         visit_count = np.array(visit_count)
+        # get the action probabilities
         probability = visit_count/np.sum(visit_count)
+
+        # sample next move
         next_move = np.random.choice(actions, p = probability)
+
+        # get the next root node
+        next_node = self.root.edges[next_move]['node']
+        if next_node is not None:
+            self.root = next_node
+
         return next_move
+    
+    '''
+    update the root node based on the input state:
+    if the state is already simulated by the tree before, then just change the root node to the corresponding node
+    otherwise, create a new node and make it the root (typically happens when there is a new game)
+    '''
+    def transplant(self, state:dict):
+        # get the previous move for faster locationing
+        prev_move = state['previous']
+
+        if prev_move is not None:
+            target_node = self.root.edges[prev_move]['node']
+            if target_node is not None and target_node.equal_state(state):
+                self.root = target_node
+                return
+        
+        # either the previous move is None or the target node is not matching
+        new_node = TreeNode(state,self.pol,self.sim_player)
+        self.root = new_node
 
 
         
@@ -140,13 +249,7 @@ class MCTS:
 #     p1 = ply.RandomPlayer()
 #     p2 = ply.RandomPlayer()
 #     game = env.UltimateTTT(player1=p1, player2=p2)
-#     policy = RandomPolicy()
-#     mcts = MCTS(game.get_state(), policy=policy, simulation_player=p1)
-
-#     start = time.time()
-#     mcts.run_simumation(1000)
-#     print(mcts.get_move())
-
+#     pol = RandomPolicy()
 #     x_win = 0
 #     o_win = 0
 #     tie = 0
