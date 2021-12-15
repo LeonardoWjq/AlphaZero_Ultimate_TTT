@@ -45,6 +45,7 @@ class MCTSPlayer(Player):
         self.num_sim = num_simulation
         self.mcts_agent = None
 
+    
     def move(self,state:dict):
         # create the MCTS agent if it does not exist
         if self.mcts_agent is None:
@@ -60,4 +61,6 @@ class MCTSPlayer(Player):
             move = self.mcts_agent.get_move()
         
         return move
-            
+    # reset the agent to None
+    def reset(self):
+        self.mcts_agent = None

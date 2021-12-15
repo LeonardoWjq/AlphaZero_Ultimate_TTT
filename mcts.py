@@ -40,11 +40,16 @@ class TreeNode:
 
     '''
     get a list of actions that have the max values
+    exploration_factor: controls the level of exploration, the higher, the more exploration and vice-versa
     prioritize the nodes that have not been expanded before
     randomly sample one action from the candidates in case of a tie
     return the sampled acton
     '''
-    def get_max_action(self):
+    def get_max_action(self,explore_factor):
+        # get total visit of this node
+        total_visit = 0
+        for _, value in self.edges.items():
+            total_visit += value['count']
         # store maximum value
         max_val = float('-inf')
         # store max actions
@@ -61,7 +66,7 @@ class TreeNode:
             # if the edge if visited before
             else:
                 q = record['total_val']/record['count']
-                u = record['prior']/(1+record['count'])
+                u = explore_factor*record['prior']*np.sqrt(total_visit)/(1+record['count'])
                 # if the value is the current max
                 if q+u > max_val:
                     max_val = q+u
@@ -82,13 +87,13 @@ class TreeNode:
     o win: -1
     tie: 2 
     '''
-    def simulate(self):
+    def simulate(self, explore_factor):
         # check if current is terminal state
         if self.is_terminal:
             return self.state['winner']
         
         # get the max action
-        action = self.get_max_action()
+        action = self.get_max_action(explore_factor)
 
         # get the edge of that action
         edge = self.edges[action]
@@ -121,7 +126,7 @@ class TreeNode:
             return result
         # simulate next node if it exists
         else:
-            result = edge['node'].simulate()
+            result = edge['node'].simulate(explore_factor)
             edge['count'] += 1
             if result != 2:
                 current_player = self.state['current']
@@ -178,10 +183,11 @@ class TreeNode:
 # Monte Carlo Tree Search Class
 class MCTS:
     # initialze attributes
-    def __init__(self, state:dict, policy, simulation_player) -> None:
+    def __init__(self, state:dict, policy, simulation_player, exploration_factor = 0.7) -> None:
         self.root = TreeNode(state, policy, simulation_player)
         self.pol = policy
         self.sim_player = simulation_player
+        self.explore_factor = exploration_factor
 
     '''
     input number of simulation steps
@@ -189,7 +195,7 @@ class MCTS:
     '''
     def run_simumation(self, num = 500):
         for _ in range(num):
-            self.root.simulate()
+            self.root.simulate(self.explore_factor)
 
     '''
     sample an action from the root state based on the probabilities from the simulation
