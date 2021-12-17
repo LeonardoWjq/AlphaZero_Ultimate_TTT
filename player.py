@@ -1,8 +1,10 @@
 import numpy as np
 import mcts
 from policy import RandomPolicy
+from policy import NNPolicy
+
 class Player:
-    def move(self, state:dict)->int:
+    def move(self, state: dict)->int:
         pass
 
 class RandomPlayer(Player):
@@ -69,7 +71,7 @@ class MCTSPlayer(Player):
         temperature = self.select_temp()
         # create the MCTS agent if it does not exist
         if self.mcts_agent is None:
-            pol = RandomPolicy()
+            pol = NNPolicy()
             sim_player = RandomPlayer()
             self.mcts_agent = mcts.MCTS(state,pol,sim_player)
             self.mcts_agent.run_simumation(self.num_sim)

@@ -377,7 +377,7 @@ class UltimateTTT:
     
 
 def main():
-    p1 = ply.MCTSPlayer(num_simulation=200)
+    p1 = ply.MCTSPlayer(num_simulation=400)
     p2 = ply.MCTSPlayer(num_simulation=400)
    
     x_win = 0
