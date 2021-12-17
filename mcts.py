@@ -1,9 +1,6 @@
 import player as ply
 import environment as env
 import numpy as np
-from policy import RandomPolicy
-import time
-
 
 # The class for one TreeNode
 class TreeNode:
@@ -198,10 +195,12 @@ class MCTS:
             self.root.simulate(self.explore_factor)
 
     '''
-    sample an action from the root state based on the probabilities from the simulation
+    compute the probability distributions for candidate moves
+    sample an action from the distribution
+    return both the action and the probability disitribution of moves over the entire output space (81 slots)
     ATTENTION: this method also changes the root node to the lastest game state resulted after taking the action provided it's not None
     '''
-    def get_move(self):
+    def get_move(self, temp):
         actions = []
         visit_count = []
         # store the actions and the corresponding visit counts
@@ -210,18 +209,23 @@ class MCTS:
             visit_count.append(value['count'])
         
         visit_count = np.array(visit_count)
+        scores = visit_count**(1/temp)
         # get the action probabilities
-        probability = visit_count/np.sum(visit_count)
+        probs = scores/np.sum(scores)
 
         # sample next move
-        next_move = np.random.choice(actions, p = probability)
+        next_move = np.random.choice(actions, p = probs)
 
-        # get the next root node
+        # the probabilities over the entire output dimension
+        prob_vec = np.zeros(81)
+        prob_vec[actions] = probs
+
+        # transplant to the next node
         next_node = self.root.edges[next_move]['node']
         if next_node is not None:
             self.root = next_node
 
-        return next_move
+        return next_move, prob_vec
     
     '''
     update the root node based on the input state:
