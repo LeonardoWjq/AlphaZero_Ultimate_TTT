@@ -1,7 +1,10 @@
 from collections import namedtuple
+from Network import Network
 from environment import UltimateTTT
-from player import MCTSPlayer
+from player import MCTSPlayer, RandomPlayer
 from policy import NNPolicy
+import torch
+import numpy as np
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -41,9 +44,17 @@ def self_play(player1:MCTSPlayer,player2:MCTSPlayer,num_games=10):
 
 
 def main():
-    player1 = MCTSPlayer(num_simulation=100,store_hist=True)
-    player2 = MCTSPlayer(num_simulation=100,store_hist=True)
-    self_play(player1, player2,1)
+    player1 = RandomPlayer()
+    player2 = RandomPlayer()
+    #self_play(player1, player2,1)
+    game = UltimateTTT(player1,player2)
+    game.play()
+    state = game.get_state()
+    board = np.expand_dims(state['inner'],axis=0)
+    print(board.shape)
+    board = torch.from_numpy(board)
+    net = Network()
+    print(net(board))
 
 if __name__ == '__main__':
     main()
