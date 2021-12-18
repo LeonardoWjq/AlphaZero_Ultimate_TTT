@@ -1,6 +1,9 @@
 from collections import namedtuple
 from environment import UltimateTTT
 from player import MCTSPlayer
+from policy import NNPolicy
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 '''
 given a history list and the winner of the game

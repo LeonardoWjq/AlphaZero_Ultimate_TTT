@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import network as net
+import Network as net
 
 class Policy:
     def get_probs(self, state:dict):

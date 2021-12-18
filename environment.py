@@ -377,14 +377,14 @@ class UltimateTTT:
     
 
 def main():
-    p1 = ply.MCTSPlayer(num_simulation=400)
-    p2 = ply.MCTSPlayer(num_simulation=400)
+    p1 = ply.MCTSPlayer(num_simulation=300)
+    p2 = ply.RandomPlayer()
    
     x_win = 0
     o_win = 0
     tie = 0
 
-    for _ in tqdm(range(10)):
+    for _ in tqdm(range(50)):
         game = UltimateTTT(player1=p1, player2=p2)
         game.play(False)
         final_state = game.get_state()
@@ -396,7 +396,7 @@ def main():
             tie += 1
         
         p1.reset()
-        p2.reset()
+        
         
     
     print('number of wins for x:', x_win)

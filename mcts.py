@@ -166,7 +166,7 @@ class TreeNode:
             return False
         
         # if the valid moves are not the same
-        if this_state['valid_move'].sort() != input_state['valid_move'].sort():
+        if sorted(this_state['valid_move']) != sorted(input_state['valid_move']):
             return False
         
         # the two states are identical
