@@ -6,6 +6,8 @@ from torch.nn import functional as F
 class Network(nn.Module):
     def __init__(self):
         super(Network, self).__init__()
+
+        # Layer Definitions
         self.conv1 = nn.Conv2d(in_channels=1, 
                                out_channels=64, 
                                kernel_size=3, 
@@ -41,3 +43,4 @@ class Network(nn.Module):
         v = torch.tanh(v)
 
         return pi, v
+

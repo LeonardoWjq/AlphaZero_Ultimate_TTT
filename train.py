@@ -1,5 +1,5 @@
 from collections import namedtuple
-from Network import Network
+from network import Network
 from environment import UltimateTTT
 from player import MCTSPlayer, RandomPlayer
 from policy import NNPolicy
@@ -50,9 +50,9 @@ def main():
     game = UltimateTTT(player1,player2)
     game.play()
     state = game.get_state()
-    board = np.expand_dims(state['inner'],axis=0)
+    board = torch.Tensor(state['inner'])
     print(board.shape)
-    board = torch.from_numpy(board)
+    board = board[None,None]
     net = Network()
     print(net(board))
 
