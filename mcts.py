@@ -245,40 +245,6 @@ class MCTS:
         # either the previous move is None or the target node is not matching
         new_node = TreeNode(state,self.pol,self.sim_player)
         self.root = new_node
-
-
-        
-    
-
-        
-        
-
-
-
-# def main():
-#     p1 = ply.RandomPlayer()
-#     p2 = ply.RandomPlayer()
-#     game = env.UltimateTTT(player1=p1, player2=p2)
-#     pol = RandomPolicy()
-#     x_win = 0
-#     o_win = 0
-#     tie = 0
-#     # for _ in range(1000):
-#     #     res = node.unroll()
-#     #     if res == 1:
-#     #         x_win += 1
-#     #     elif res == -1:
-#     #         o_win += 1
-#     #     elif res == 2:
-#     #         tie += 1
-#     # print(x_win)
-#     # print(o_win)
-#     # print(tie)
-
-
-# if __name__ == '__main__':
-#     main()
-   
     
         
         

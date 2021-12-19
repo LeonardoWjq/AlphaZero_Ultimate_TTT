@@ -3,8 +3,8 @@ import torch
 import random
 import mcts
 from network import Network
-from policy import RandomPolicy
-
+from policy import NNPolicy, RandomPolicy
+from termcolor import colored
 class Player:
     def move(self, state: dict)->int:
         pass
@@ -113,7 +113,8 @@ class NNPlayer(Player):
         self.network = NNet
     
     def move(self, state: dict) -> int:
-        board = state['inner']
+        # board relative to the current player 1 for itself, -1 for its opponent
+        board = state['inner']*state['current']
         board = board[None, None, :]
         board = torch.from_numpy(board).float()
 
@@ -141,7 +142,25 @@ class NNPlayer(Player):
         return valid_moves[move_index]
 
 
+class AlphaZeroPlayer(Player):
+    def __init__(self, num_simulation = 300) -> None:
+        try:
+            model = torch.load('model.pt')
+            print(colored('Neural network model loaded successfully.','green'))
+        except FileNotFoundError:
+            model = Network()
+            print(colored('Warning: loading neural network model failed. Initializing a random network instead.','yellow'))
+        
+        pol = NNPolicy(model)
+        sim = NNPlayer(model)
+        self.player = MCTSPlayer(pol,sim,num_simulation)
 
+    def move(self, state:dict):
+        return self.player.move(state)
+    
+    def reset(self):
+        self.player.reset()
+        
         
         
         

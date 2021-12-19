@@ -12,7 +12,7 @@ class NNPolicy(Policy):
 
     def get_probs(self, state: dict):
         valid_moves = state['valid_move']
-        board_state = torch.Tensor(state['inner'])
+        board_state = torch.Tensor(state['inner']*state['current'])
         move_probs = self.network(board_state[None, None])
 
         valid_move_probs = []

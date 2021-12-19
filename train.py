@@ -27,6 +27,16 @@ def to_dataset(history, winner):
     
     return dataset
 
+def to_mini_batch(dataset, mini_size = 10):
+    batch = []
+    dim = dataset.size()[0]
+    for index in range(0,dim,mini_size):
+        batch.append(dataset[index:index+mini_size])
+    
+    return batch
+
+
+
 
 '''
 let the player play game with itself
@@ -69,6 +79,34 @@ def loss_function(z,v,pi,p):
     loss = (val_loss - pol_loss)/m
     return loss
 
+def eval(current_best:MCTSPlayer, baseline:MCTSPlayer, num_games = 20):
+    score = 0
+    for i in num_games:
+        # alternating x and o
+        if i % 2 == 0:
+            game = UltimateTTT(current_best, baseline)
+            game.play()
+            final_state = game.get_state()
+            if final_state['winner'] == 1:
+                score +=1
+            elif final_state['winner'] == -1:
+                score -= 1
+        else:
+            game = UltimateTTT(baseline, current_best)
+            game.play()
+            final_state = game.get_state()
+            if final_state['winner'] == -1:
+                score +=1
+            elif final_state['winner'] == 1:
+                score -= 1
+        
+        current_best.reset()
+        baseline.reset()
+    
+    return score/num_games
+
+            
+
 
 def train(num_self_play = 10, num_epoch = 10):
     net = Network()
@@ -81,17 +119,24 @@ def train(num_self_play = 10, num_epoch = 10):
     for _ in tqdm(range(5)):
         
         states,pi,z = self_play(player1, player2)
-        for _ in range(10):
-            p,v = net(states)
-            optimizer.zero_grad()
-            loss = loss_function(z,v,pi,p)
-            losses.append(loss.item())
-            loss.backward()
-            optimizer.step()
+
+        states = to_mini_batch(states)
+        pi = to_mini_batch(pi)
+        z = to_mini_batch(z)
+        print(z)
+        for epoch in range(10):
+            for mini_state, mini_pi, mini_z in zip(states, pi, z):
+                p,v = net(mini_state)
+                optimizer.zero_grad()
+                loss = loss_function(mini_z,v,mini_pi,p)
+                losses.append(loss.item())
+                loss.backward()
+                optimizer.step()
 
         player1.reset()
         player2.reset()
-
+    
+    torch.save(net, 'model.pt')
     plt.plot(range(1,len(losses)+1), losses)
     plt.show()
 

@@ -3,6 +3,8 @@ import player as ply
 from termcolor import colored
 from tqdm import tqdm
 import time
+
+from policy import RandomPolicy
 class UltimateTTT:
 
     def __init__(self, player1, player2, state = None) -> None:
@@ -377,14 +379,17 @@ class UltimateTTT:
     
 
 def main():
-    p1 = ply.MCTSPlayer(num_simulation=300)
-    p2 = ply.RandomPlayer()
+    pol = RandomPolicy()
+    sim = ply.RandomPlayer()
+    p1 = ply.AlphaZeroPlayer()
+    p2 = ply.MCTSPlayer(pol, sim)
+
    
     x_win = 0
     o_win = 0
     tie = 0
 
-    for _ in tqdm(range(50)):
+    for _ in tqdm(range(10)):
         game = UltimateTTT(player1=p1, player2=p2)
         game.play(False)
         final_state = game.get_state()
@@ -396,6 +401,7 @@ def main():
             tie += 1
         
         p1.reset()
+        p2.reset()
         
         
     
