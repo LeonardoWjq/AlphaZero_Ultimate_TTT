@@ -1,14 +1,14 @@
 import numpy as np
 import torch
-import network as net
+from network import Network
 
 class Policy:
     def get_probs(self, state:dict):
         pass
 
 class NNPolicy(Policy):
-    def __init__(self):
-        self.network = net.Network()
+    def __init__(self, NNet:Network):
+        self.network = NNet
 
     def get_probs(self, state: dict):
         valid_moves = state['valid_move']

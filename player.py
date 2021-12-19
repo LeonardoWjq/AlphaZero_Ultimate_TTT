@@ -1,7 +1,9 @@
 import numpy as np
+import torch
+import random
 import mcts
+from network import Network
 from policy import RandomPolicy
-from policy import NNPolicy
 
 class Player:
     def move(self, state: dict)->int:
@@ -43,7 +45,9 @@ class HumanPlayer(Player):
 
 class MCTSPlayer(Player):
     # initialize the attributes
-    def __init__(self, num_simulation = 300, store_hist = False) -> None:
+    def __init__(self,prior_policy,sim_player,num_simulation = 300, store_hist = False) -> None:
+        self.pol = prior_policy
+        self.sim = sim_player
         self.mcts_agent = None
         self.num_sim = num_simulation
         # store the number of step in one game
@@ -71,9 +75,7 @@ class MCTSPlayer(Player):
         temperature = self.select_temp()
         # create the MCTS agent if it does not exist
         if self.mcts_agent is None:
-            pol = NNPolicy()
-            sim_player = RandomPlayer()
-            self.mcts_agent = mcts.MCTS(state,pol,sim_player)
+            self.mcts_agent = mcts.MCTS(state,self.pol,self.sim)
             self.mcts_agent.run_simumation(self.num_sim)
             move,probs = self.mcts_agent.get_move(temp=temperature)
         else:
@@ -104,3 +106,42 @@ class MCTSPlayer(Player):
     '''
     def get_history(self):
         return self.history
+
+
+class NNPlayer(Player):
+    def __init__(self, NNet:Network) -> None:
+        self.network = NNet
+    
+    def move(self, state: dict) -> int:
+        board = state['inner']
+        board = board[None, None, :]
+        board = torch.from_numpy(board).float()
+
+        # get the probabilities in shape (,81)
+        probs = self.network(board)[0][0]
+        valid_moves = state['valid_move']
+        valid_probs = probs[valid_moves]
+        # normalize valid probabilities so that they sum to 1
+        valid_probs = valid_probs/torch.sum(valid_probs)
+
+    
+        max_move_indices = []
+        max_move_prob = 0
+
+        for i, prob in enumerate(valid_probs):
+            if prob > max_move_prob:
+                max_move_prob = prob
+                max_move_indices = [i]
+            elif prob == max_move_prob:
+                max_move_indices.append(i)
+        
+        # randomly choose one to break ties
+        move_index = random.choice(max_move_indices)
+
+        return valid_moves[move_index]
+
+
+
+        
+        
+        
