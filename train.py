@@ -204,8 +204,13 @@ def train(num_self_play = 100, num_epoch = 10, mini_size = 10, lr = 1e-4, checkp
 
 
 def main():
-    train(100, start=15)
+    train(100, start=20)
 
+    # with open('loss.txt','rb') as fp:
+    #     loss = pickle.load(fp)
+    #     print(len(loss))
+    #     plt.plot(list(range(1,len(loss)+1)), loss)
+    #     plt.show()
 
 if __name__ == '__main__':
     main()
