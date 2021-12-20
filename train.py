@@ -6,6 +6,7 @@ from policy import NNPolicy
 from tqdm import tqdm
 from termcolor import colored
 import torch
+import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
@@ -72,20 +73,21 @@ def self_play(player1:MCTSPlayer,player2:MCTSPlayer):
     
     states = np.array(states)
     probs = np.array(probs)
-    scores = np.array(scores)
+    scores = np.array(scores).reshape(-1,1)
 
     
-    return torch.tensor(states).float(), torch.tensor(probs), torch.tensor(scores)
+    return torch.tensor(states).float(), torch.tensor(probs).float(), torch.tensor(scores).float()
 
 '''
 squared loss of values plus cross-entropy loss of move probabilities
 '''
 def loss_function(z,v,pi,p):
-    m = z.size()[0]
-    val_loss = torch.sum(torch.square(z - v))
-    pol_loss = torch.sum(pi*torch.log(p))
-    loss = (val_loss - pol_loss)/m
-    return loss
+    mse = nn.MSELoss()
+    cel = nn.CrossEntropyLoss()
+    val_loss = mse(z,v)
+    pol_loss = cel(pi,p)
+    
+    return val_loss + pol_loss
 
 '''
 Given a current best player, a baseline player and the number of games to play
@@ -129,7 +131,7 @@ lr: learning rate
 checkpoint: number of runs per save
 start: starting number of model to continue
 '''
-def train(num_self_play = 100, num_epoch = 10, mini_size = 10, lr = 1e-4, checkpoint = 5, start = None):
+def train(num_self_play = 100, num_epoch = 20, mini_size = 10, lr = 1e-3, checkpoint = 5, start = None):
 
     model = None
     total_loss = None
@@ -191,11 +193,13 @@ def train(num_self_play = 100, num_epoch = 10, mini_size = 10, lr = 1e-4, checkp
         # compute the mean loss for the entire batch
         batch_p, batch_v = model(batch_state)
         mean_loss = loss_function(batch_z, batch_v, batch_pi, batch_p)
-        total_loss.append(mean_loss)
+        total_loss.append(mean_loss.item())
 
-        # resst players
-        player.reset()
-        player_cpy.reset()
+        # reset players
+        pol = NNPolicy(model)
+        sim = NNPlayer(model)
+        player = MCTSPlayer(pol, sim, store_hist=True)
+        player_cpy = MCTSPlayer(pol, sim, store_hist=True)
     
     # saving the model and the loss record at the end
     with open('loss.txt', 'wb') as fp:
@@ -204,7 +208,7 @@ def train(num_self_play = 100, num_epoch = 10, mini_size = 10, lr = 1e-4, checkp
 
 
 def main():
-    train(100, start=20)
+    train(30,start=5)
 
     # with open('loss.txt','rb') as fp:
     #     loss = pickle.load(fp)
