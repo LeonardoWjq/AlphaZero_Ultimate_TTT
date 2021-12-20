@@ -9,7 +9,11 @@ class Policy:
 class NNPolicy(Policy):
     def __init__(self, NNet:Network):
         self.network = NNet
-
+    
+    '''
+    take state as an input
+    output the re-normalized probabilities of each valid move in a list
+    '''
     def get_probs(self, state: dict):
         valid_moves = state['valid_move']
         board_state = torch.Tensor(state['inner']*state['current'])
@@ -28,7 +32,12 @@ class NNPolicy(Policy):
 
         return valid_move_probs
 
+
 class RandomPolicy(Policy):
+    '''
+    input a state
+    output a vector of equal probabilities corresponding to the dimension of valid moves
+    '''
     def get_probs(self, state: dict):
         length = len(state['valid_move'])
         probs = np.ones(length)/length

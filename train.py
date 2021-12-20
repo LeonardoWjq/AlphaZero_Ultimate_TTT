@@ -1,14 +1,15 @@
 from collections import namedtuple
 from network import Network
 from environment import UltimateTTT
-from player import MCTSPlayer, RandomPlayer, NNPlayer
-from policy import NNPolicy, RandomPolicy
+from player import MCTSPlayer, NNPlayer
+from policy import NNPolicy
 from tqdm import tqdm
+from termcolor import colored
 import torch
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
-import time
+import pickle
 import random
 
 '''
@@ -27,6 +28,10 @@ def to_dataset(history, winner):
     
     return dataset
 
+'''
+Given a batch dataset and a size
+Output a list of mini-batches specified by the mini-batch size
+'''
 def to_mini_batch(dataset, mini_size = 10):
     batch = []
     dim = dataset.size()[0]
@@ -72,6 +77,9 @@ def self_play(player1:MCTSPlayer,player2:MCTSPlayer):
     
     return torch.tensor(states).float(), torch.tensor(probs), torch.tensor(scores)
 
+'''
+squared loss of values plus cross-entropy loss of move probabilities
+'''
 def loss_function(z,v,pi,p):
     m = z.size()[0]
     val_loss = torch.sum(torch.square(z - v))
@@ -79,9 +87,14 @@ def loss_function(z,v,pi,p):
     loss = (val_loss - pol_loss)/m
     return loss
 
+'''
+Given a current best player, a baseline player and the number of games to play
+Output a normalized score in [-1,1] for the curent best player based on the game results
+'''
 def eval(current_best:MCTSPlayer, baseline:MCTSPlayer, num_games = 20):
     score = 0
-    for i in num_games:
+    print("Evaluation in progress:")
+    for i in tqdm(range(num_games)):
         # alternating x and o
         if i % 2 == 0:
             game = UltimateTTT(current_best, baseline)
@@ -100,6 +113,7 @@ def eval(current_best:MCTSPlayer, baseline:MCTSPlayer, num_games = 20):
             elif final_state['winner'] == 1:
                 score -= 1
         
+        # reset both players
         current_best.reset()
         baseline.reset()
     
@@ -107,69 +121,91 @@ def eval(current_best:MCTSPlayer, baseline:MCTSPlayer, num_games = 20):
 
             
 
+'''
+num_self_play: number of self-playing games
+num_epoch: number of epoch for each batch of data
+mini_size: size of mini-batch
+lr: learning rate
+checkpoint: number of runs per save
+start: starting number of model to continue
+'''
+def train(num_self_play = 100, num_epoch = 10, mini_size = 10, lr = 1e-4, checkpoint = 5, start = None):
 
-def train(num_self_play = 10, num_epoch = 10):
-    net = Network()
-    optimizer = optim.Adam(net.parameters(), lr=0.0001)
-    pol = NNPolicy(net)
-    sim = NNPlayer(net)
-    player1 = MCTSPlayer(pol, sim, 200, True)
-    player2 = MCTSPlayer(pol,sim, 200, True)
-    losses = []
-    for _ in tqdm(range(5)):
-        
-        states,pi,z = self_play(player1, player2)
+    model = None
+    total_loss = None
 
-        states = to_mini_batch(states)
-        pi = to_mini_batch(pi)
-        z = to_mini_batch(z)
-        print(z)
-        for epoch in range(10):
-            for mini_state, mini_pi, mini_z in zip(states, pi, z):
-                p,v = net(mini_state)
+    # check if the starting point is specified
+    if start is None:
+        print('Training the network from the beginning.')
+        model = Network()
+        start = 0
+    else: 
+        model = torch.load(f'./models/model_{start}.pt')
+        print(colored(f'Model {start} successfully loaded.', 'green'))
+    
+
+    # load the loss record
+    try:
+        with open('loss.txt','rb') as fp:
+            total_loss = pickle.load(fp)
+            print(colored('Loss record successfully loaded.','green'))
+    except FileNotFoundError:
+        print('Cannot find loss record file. Start from the beginning.')
+        total_loss = []
+    
+    # check if picking up the latest
+    if start != len(total_loss):
+        input(colored('Warning:starting point and the number of losses are not equal! Press ENTER if continues anyway.', 'red'))
+
+
+    optimizer = optim.Adam(model.parameters(),lr)
+    # creating player and its copy
+    pol = NNPolicy(model)
+    sim = NNPlayer(model)
+    player = MCTSPlayer(pol, sim, store_hist=True)
+    player_cpy = MCTSPlayer(pol, sim, store_hist=True)
+
+    print(colored('Start self-playing process:', 'green'))
+    for index in tqdm(range(start, start + num_self_play)):
+        # saving the model and loss
+        if index % checkpoint == 0:
+            with open('loss.txt', 'wb') as fp:
+                pickle.dump(total_loss,fp)    
+            torch.save(model,f'./models/model_{index}.pt')
+
+        # get batch and split into mini-batches    
+        batch_state, batch_pi, batch_z = self_play(player, player_cpy)
+        mini_states = to_mini_batch(batch_state, mini_size)
+        mini_pi = to_mini_batch(batch_pi)
+        mini_z = to_mini_batch(batch_z)
+
+        # training the network
+        for epoch in range(num_epoch):
+            for state, pi, z in zip(mini_states, mini_pi, mini_z):
+                p,v = model(state)
                 optimizer.zero_grad()
-                loss = loss_function(mini_z,v,mini_pi,p)
-                losses.append(loss.item())
+                loss = loss_function(z,v,pi,p)
                 loss.backward()
                 optimizer.step()
+        
+        # compute the mean loss for the entire batch
+        batch_p, batch_v = model(batch_state)
+        mean_loss = loss_function(batch_z, batch_v, batch_pi, batch_p)
+        total_loss.append(mean_loss)
 
-        player1.reset()
-        player2.reset()
+        # resst players
+        player.reset()
+        player_cpy.reset()
     
-    torch.save(net, 'model.pt')
-    plt.plot(range(1,len(losses)+1), losses)
-    plt.show()
-
-    
-    # torch.save(net,'model.pt')
-    # try:
-    #     model = torch.load('modl.pt')
-    # except FileNotFoundError:
-    #     print('file not found')
-    #     model = Network()
-    # print(model)
-
-    
-
-
-
+    # saving the model and the loss record at the end
+    with open('loss.txt', 'wb') as fp:
+        pickle.dump(total_loss,fp)    
+    torch.save(model,f'./models/model_{start + num_self_play}.pt')
 
 
 def main():
-    # net = Network()
-    # pol = RandomPolicy()
-    # sim = RandomPlayer()
-    # player1 = MCTSPlayer(pol, sim, store_hist=True)
-    # player2 = MCTSPlayer(pol, sim, store_hist=True)
-    # state, prob,score = self_play(player1,player2)
-    # print(state.size())
-    # print(prob.size())
-    # print(score.size())
-    train()
+    train(100, start=15)
 
-    # start = time.time()
-    # game.play()
-    # print(time.time() - start)
 
 if __name__ == '__main__':
     main()

@@ -2,7 +2,7 @@ import numpy as np
 import player as ply
 from termcolor import colored
 from tqdm import tqdm
-import time
+
 
 from policy import RandomPolicy
 class UltimateTTT:
@@ -379,10 +379,8 @@ class UltimateTTT:
     
 
 def main():
-    pol = RandomPolicy()
-    sim = ply.RandomPlayer()
-    p1 = ply.AlphaZeroPlayer()
-    p2 = ply.MCTSPlayer(pol, sim)
+    p1 = ply.AlphaZeroPlayer(model_num=15)
+    p2 = ply.AlphaZeroPlayer(model_num=0)
 
    
     x_win = 0

@@ -45,7 +45,7 @@ class HumanPlayer(Player):
 
 class MCTSPlayer(Player):
     # initialize the attributes
-    def __init__(self,prior_policy,sim_player,num_simulation = 300, store_hist = False) -> None:
+    def __init__(self,prior_policy,sim_player,num_simulation = 200, store_hist = False) -> None:
         self.pol = prior_policy
         self.sim = sim_player
         self.mcts_agent = None
@@ -112,6 +112,7 @@ class NNPlayer(Player):
     def __init__(self, NNet:Network) -> None:
         self.network = NNet
     
+    
     def move(self, state: dict) -> int:
         # board relative to the current player 1 for itself, -1 for its opponent
         board = state['inner']*state['current']
@@ -143,9 +144,9 @@ class NNPlayer(Player):
 
 
 class AlphaZeroPlayer(Player):
-    def __init__(self, num_simulation = 300) -> None:
+    def __init__(self, model_num, num_simulation = 200) -> None:
         try:
-            model = torch.load('model.pt')
+            model = torch.load(f'./models/model_{model_num}.pt')
             print(colored('Neural network model loaded successfully.','green'))
         except FileNotFoundError:
             model = Network()
