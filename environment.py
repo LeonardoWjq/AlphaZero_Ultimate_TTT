@@ -379,7 +379,7 @@ class UltimateTTT:
     
 
 def main():
-    p1 = ply.AlphaZeroPlayer(model_num=20)
+    p1 = ply.AlphaZeroPlayer(model_num=500)
     p2 = ply.AlphaZeroPlayer(model_num=0)
 
    
@@ -387,7 +387,7 @@ def main():
     o_win = 0
     tie = 0
 
-    for _ in tqdm(range(30)):
+    for _ in tqdm(range(50)):
         game = UltimateTTT(player1=p1, player2=p2)
         game.play(False)
         final_state = game.get_state()

@@ -9,21 +9,25 @@ class Network(nn.Module):
 
         # Layer Definitions
         self.conv1 = nn.Conv2d(in_channels=1, 
-                               out_channels=64, 
+                               out_channels=128, 
                                kernel_size=3, 
                                stride=3)
-        self.conv2 = nn.Conv2d(in_channels=64, 
-                               out_channels=32, 
+        self.conv2 = nn.Conv2d(in_channels=128, 
+                               out_channels=128, 
                                kernel_size=1, 
                                stride=1)
-        self.conv3 = nn.Conv2d(in_channels=32,
-                               out_channels=16, 
+        self.conv3 = nn.Conv2d(in_channels=128,
+                               out_channels=128, 
                                kernel_size=1, 
                                stride=1)
+
+        self.fc_1 = nn.Linear(128*3*3, 512)
         # Then ReLU
-        self.fc_pi = nn.Linear(16*3*3, 81)
+        self.fc_2 = nn.Linear(512, 256)
+        # Then ReLU
+        self.fc_pi = nn.Linear(256, 81)
         # Then Softmax
-        self.fc_v = nn.Linear(16*3*3, 1)
+        self.fc_v = nn.Linear(256, 1)
         # Then tanh
 
     def forward(self, x):
@@ -33,13 +37,16 @@ class Network(nn.Module):
         x = F.relu(x)
         x = self.conv3(x)
         x = F.relu(x)
+        x = x.view(-1, 128*3*3)
+        x = self.fc_1(x)
+        x = F.relu(x)
+        x = self.fc_2(x)
+        x = F.relu(x)
 
-        pi = x.view(-1, 16*3*3)
-        pi = self.fc_pi(pi)
+        pi = self.fc_pi(x)
         pi = F.softmax(pi, dim=1)
 
-        v = x.view(-1, 16*3*3)
-        v = self.fc_v(v)
+        v = self.fc_v(x)
         v = torch.tanh(v)
 
         return pi, v

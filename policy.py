@@ -27,8 +27,12 @@ class NNPolicy(Policy):
             valid_move_probs.append(valid_prob)
             total_valid_probs += valid_prob
         
-        for i, _ in enumerate(valid_move_probs):
-            valid_move_probs[i] /= total_valid_probs
+        valid_move_probs = torch.Tensor(valid_move_probs)
+        sum = torch.sum(valid_move_probs)
+        if (sum != 0):
+            valid_move_probs = valid_move_probs/sum
+        else:
+            valid_move_probs = valid_move_probs + (1/len(valid_move_probs))
 
         return valid_move_probs
 
