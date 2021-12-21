@@ -32,7 +32,7 @@ class NNPolicy(Policy):
         if (sum != 0):
             valid_move_probs = valid_move_probs/sum
         else:
-            valid_move_probs = valid_move_probs + (1/len(valid_move_probs))
+            valid_move_probs = valid_move_probs + (1/len(valid_moves))
 
         return valid_move_probs
 

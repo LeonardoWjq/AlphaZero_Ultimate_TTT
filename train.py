@@ -208,7 +208,7 @@ def train(num_self_play = 100, num_epoch = 20, mini_size = 10, lr = 1e-3, checkp
 
 
 def main():
-    train(500,start=0)
+    train(500,start=500)
 
     with open('loss.txt','rb') as fp:
         loss = pickle.load(fp)
