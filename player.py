@@ -124,9 +124,9 @@ class NNPlayer(Player):
         valid_moves = state['valid_move']
         valid_probs = probs[valid_moves]
         # normalize valid probabilities so that they sum to 1
-        summation = torch.sum(valid_probs)
-        if summation != 0:
-            valid_probs = valid_probs/torch.sum(valid_probs)
+        sum = torch.sum(valid_probs)
+        if (sum != 0):
+            valid_probs = valid_probs/sum
 
     
         max_move_indices = []
@@ -140,6 +140,12 @@ class NNPlayer(Player):
                 max_move_indices.append(i)
         
         # randomly choose one to break ties
+        # if (len(max_move_indices) == 0):
+        #     print("NULL")
+        #     print(valid_moves)
+        #     print(valid_probs1)
+        #     print(valid_probs)
+        #     print(probs)
         move_index = random.choice(max_move_indices)
 
         return valid_moves[move_index]

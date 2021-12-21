@@ -164,8 +164,8 @@ def train(num_self_play = 100, num_epoch = 30, mini_size = 20, lr = 1e-3, checkp
     # creating player and its copy
     pol = NNPolicy(model)
     sim = NNPlayer(model)
-    player = MCTSPlayer(pol, sim, store_hist=True)
-    player_cpy = MCTSPlayer(pol, sim, store_hist=True)
+    player = MCTSPlayer(pol, sim, num_simulation=600, store_hist=True)
+    player_cpy = MCTSPlayer(pol, sim, num_simulation=600, store_hist=True)
 
     print(colored('Start self-playing process:', 'green'))
     for index in tqdm(range(start, start + num_self_play)):
@@ -208,12 +208,12 @@ def train(num_self_play = 100, num_epoch = 30, mini_size = 20, lr = 1e-3, checkp
 
 
 def main():
-    # train(100,start=None )
+    train(500,start=500)
 
     with open('loss.txt','rb') as fp:
         loss = pickle.load(fp)
+        # print(len(loss))
         plt.plot(list(range(1,len(loss)+1)), loss)
-        
         plt.show()
 
 if __name__ == '__main__':
