@@ -2,10 +2,12 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+
 # Dual-headed network
 class Network(nn.Module):
     def __init__(self):
         super(Network, self).__init__()
+        torch.set_default_dtype(torch.float64)
 
         # Layer Definitions
         self.conv1 = nn.Conv2d(in_channels=1, 
@@ -27,8 +29,7 @@ class Network(nn.Module):
         # Then ReLU
         self.fc_pi = nn.Linear(256, 81)
         # Then Softmax
-        self.fc_v = nn.Linear(256, 1)
-        # Then tanh
+        
 
     def forward(self, x):
         x = self.conv1(x)
@@ -46,8 +47,6 @@ class Network(nn.Module):
         pi = self.fc_pi(x)
         pi = F.softmax(pi, dim=1)
 
-        v = self.fc_v(x)
-        v = torch.tanh(v)
 
-        return pi, v
+        return pi
 

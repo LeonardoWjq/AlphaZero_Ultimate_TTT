@@ -200,7 +200,7 @@ class MCTS:
     return both the action and the probability disitribution of moves over the entire output space (81 slots)
     ATTENTION: this method also changes the root node to the lastest game state resulted after taking the action provided it's not None
     '''
-    def get_move(self, temp):
+    def get_move(self):
         actions = []
         visit_count = []
         # store the actions and the corresponding visit counts
@@ -209,9 +209,9 @@ class MCTS:
             visit_count.append(value['count'])
         
         visit_count = np.array(visit_count)
-        scores = visit_count**(1/temp)
+        
         # get the action probabilities
-        probs = scores/np.sum(scores)
+        probs = visit_count/np.sum(visit_count)
 
         # sample next move
         next_move = np.random.choice(actions, p = probs)

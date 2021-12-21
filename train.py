@@ -1,8 +1,8 @@
 from collections import namedtuple
-from network import Network
+from Network import Network
 from environment import UltimateTTT
-from player import MCTSPlayer, NNPlayer
-from policy import NNPolicy
+from player import MCTSPlayer, NNPlayer, RandomPlayer
+from policy import NNPolicy, RandomPolicy
 from tqdm import tqdm
 from termcolor import colored
 import torch
@@ -14,20 +14,24 @@ import pickle
 import random
 
 '''
-given a history list and the winner of the game
-output a list of named tuple that is useful for training the neural network
+given a history list of (board, probs)
+output sample and label sets in mini-batches
 '''
-def to_dataset(history, winner):
-    Data = namedtuple('data',['board', 'probs', 'score'])
-    dataset = []
-    for state, probs in history:
-        if not state['game_end']:
-            relative_board = state['inner']*state['current']
-            score = 0 if winner == 2 else winner*state['current']
-            data = Data(relative_board, probs, score)
-            dataset.append(data)
+def to_dataset(history, mini_size = 20):
+    random.shuffle(history)
+    board_batch = []
+    prob_batch = []
+    for board, prob in history:
+        board = torch.from_numpy(board[None])
+        board_batch.append(board)
+        prob = torch.from_numpy(prob)
+        prob_batch.append(prob)
+
     
-    return dataset
+    
+
+    
+    return board_batch, prob_batch
 
 '''
 Given a batch dataset and a size
@@ -35,7 +39,7 @@ Output a list of mini-batches specified by the mini-batch size
 '''
 def to_mini_batch(dataset, mini_size):
     batch = []
-    dim = dataset.size()[0]
+    dim = dataset.shape[0]
     for index in range(0,dim,mini_size):
         batch.append(dataset[index:index+mini_size])
     
@@ -79,15 +83,13 @@ def self_play(player1:MCTSPlayer,player2:MCTSPlayer):
     return torch.tensor(states).float(), torch.tensor(probs).float(), torch.tensor(scores).float()
 
 '''
-squared loss of values plus cross-entropy loss of move probabilities
+cross-entropy loss of move probabilities
 '''
-def loss_function(z,v,pi,p):
-    mse = nn.MSELoss()
+def loss_function(pi, p):
     cel = nn.CrossEntropyLoss()
-    val_loss = mse(z,v)
     pol_loss = cel(pi,p)
     
-    return val_loss + pol_loss
+    return pol_loss
 
 '''
 Given a current best player, a baseline player and the number of games to play
@@ -208,13 +210,22 @@ def train(num_self_play = 100, num_epoch = 30, mini_size = 20, lr = 1e-3, checkp
 
 
 def main():
-    train(500,start=500)
+    pol = RandomPolicy()
+    sim = RandomPlayer()
+    p1 = MCTSPlayer(pol,sim, 100, True)
+    p2 = RandomPlayer()
 
-    with open('loss.txt','rb') as fp:
-        loss = pickle.load(fp)
-        # print(len(loss))
-        plt.plot(list(range(1,len(loss)+1)), loss)
-        plt.show()
+    game = UltimateTTT(p1,p2)
+
+    
+    game.play()
+    hist = p1.get_history()
+    board, prob = to_dataset(hist)
+    
+    print(board)
+    
+    print(prob)
+
 
 if __name__ == '__main__':
     main()

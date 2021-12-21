@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import random
 import mcts
-from network import Network
+from Network import Network
 from policy import NNPolicy, RandomPolicy
 from termcolor import colored
 class Player:
@@ -56,37 +56,27 @@ class MCTSPlayer(Player):
         self.store_hist = store_hist
         self.history = []
 
-    '''
-    select a temperature parameter based on the number of steps played so far in the game
-    '''
-    def select_temp(self):
-        if self.step < 10:
-            return 2
-        elif self.step < 20:
-            return 1
-        else:
-            return 0.5
         
     '''
     select a move given a state
     store the history if the flag is True
     '''
     def move(self,state:dict):
-        temperature = self.select_temp()
         # create the MCTS agent if it does not exist
         if self.mcts_agent is None:
             self.mcts_agent = mcts.MCTS(state,self.pol,self.sim)
             self.mcts_agent.run_simumation(self.num_sim)
-            move,probs = self.mcts_agent.get_move(temp=temperature)
+            move,probs = self.mcts_agent.get_move()
         else:
             # do a transplantation
             self.mcts_agent.transplant(state)
             self.mcts_agent.run_simumation(self.num_sim)
-            move,probs = self.mcts_agent.get_move(temp=temperature)
+            move,probs = self.mcts_agent.get_move()
         
         # store history
         if self.store_hist:
-            self.history.append((state, probs))
+            relative_board = state['inner']*state['current']
+            self.history.append((relative_board, probs))
         
         return move
 
@@ -140,12 +130,6 @@ class NNPlayer(Player):
                 max_move_indices.append(i)
         
         # randomly choose one to break ties
-        # if (len(max_move_indices) == 0):
-        #     print("NULL")
-        #     print(valid_moves)
-        #     print(valid_probs1)
-        #     print(valid_probs)
-        #     print(probs)
         move_index = random.choice(max_move_indices)
 
         return valid_moves[move_index]

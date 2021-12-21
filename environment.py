@@ -379,8 +379,10 @@ class UltimateTTT:
     
 
 def main():
-    p1 = ply.AlphaZeroPlayer(model_num=500)
-    p2 = ply.AlphaZeroPlayer(model_num=0)
+    pol = RandomPolicy()
+    sim = ply.RandomPlayer()
+    p1 = ply.MCTSPlayer(pol,sim,num_simulation=300)
+    p2 = ply.RandomPlayer()
 
    
     x_win = 0
@@ -399,8 +401,6 @@ def main():
             tie += 1
         
         p1.reset()
-        p2.reset()
-        
         
     
     print('number of wins for x:', x_win)
