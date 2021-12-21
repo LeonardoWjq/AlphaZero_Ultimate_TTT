@@ -45,7 +45,7 @@ class HumanPlayer(Player):
 
 class MCTSPlayer(Player):
     # initialize the attributes
-    def __init__(self,prior_policy,sim_player,num_simulation = 200, store_hist = False) -> None:
+    def __init__(self,prior_policy,sim_player,num_simulation = 600, store_hist = False) -> None:
         self.pol = prior_policy
         self.sim = sim_player
         self.mcts_agent = None
@@ -124,7 +124,9 @@ class NNPlayer(Player):
         valid_moves = state['valid_move']
         valid_probs = probs[valid_moves]
         # normalize valid probabilities so that they sum to 1
-        valid_probs = valid_probs/torch.sum(valid_probs)
+        summation = torch.sum(valid_probs)
+        if summation != 0:
+            valid_probs = valid_probs/torch.sum(valid_probs)
 
     
         max_move_indices = []
@@ -144,7 +146,7 @@ class NNPlayer(Player):
 
 
 class AlphaZeroPlayer(Player):
-    def __init__(self, model_num, num_simulation = 200) -> None:
+    def __init__(self, model_num, num_simulation = 600) -> None:
         try:
             model = torch.load(f'./models/model_{model_num}.pt')
             print(colored('Neural network model loaded successfully.','green'))

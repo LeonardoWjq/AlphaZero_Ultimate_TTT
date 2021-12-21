@@ -190,7 +190,7 @@ class MCTS:
     input number of simulation steps
     run simulations from the root (current) state
     '''
-    def run_simumation(self, num = 500):
+    def run_simumation(self, num = 600):
         for _ in range(num):
             self.root.simulate(self.explore_factor)
 

@@ -26,9 +26,10 @@ class NNPolicy(Policy):
             valid_prob = move_probs[0][0][move].item()
             valid_move_probs.append(valid_prob)
             total_valid_probs += valid_prob
-        
-        for i, _ in enumerate(valid_move_probs):
-            valid_move_probs[i] /= total_valid_probs
+            
+        if total_valid_probs != 0:
+            for i, _ in enumerate(valid_move_probs):
+                valid_move_probs[i] /= total_valid_probs
 
         return valid_move_probs
 

@@ -9,16 +9,16 @@ class Network(nn.Module):
 
         # Layer Definitions
         self.conv1 = nn.Conv2d(in_channels=1, 
+                               out_channels=128, 
+                               kernel_size=3, 
+                               stride=1)
+        self.conv2 = nn.Conv2d(in_channels=128, 
                                out_channels=64, 
                                kernel_size=3, 
-                               stride=3)
-        self.conv2 = nn.Conv2d(in_channels=64, 
-                               out_channels=32, 
-                               kernel_size=1, 
                                stride=1)
-        self.conv3 = nn.Conv2d(in_channels=32,
+        self.conv3 = nn.Conv2d(in_channels=64,
                                out_channels=16, 
-                               kernel_size=1, 
+                               kernel_size=3, 
                                stride=1)
         # Then ReLU
         self.fc_pi = nn.Linear(16*3*3, 81)

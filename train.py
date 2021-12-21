@@ -33,7 +33,7 @@ def to_dataset(history, winner):
 Given a batch dataset and a size
 Output a list of mini-batches specified by the mini-batch size
 '''
-def to_mini_batch(dataset, mini_size = 10):
+def to_mini_batch(dataset, mini_size):
     batch = []
     dim = dataset.size()[0]
     for index in range(0,dim,mini_size):
@@ -131,7 +131,7 @@ lr: learning rate
 checkpoint: number of runs per save
 start: starting number of model to continue
 '''
-def train(num_self_play = 100, num_epoch = 20, mini_size = 10, lr = 1e-3, checkpoint = 5, start = None):
+def train(num_self_play = 100, num_epoch = 30, mini_size = 20, lr = 1e-3, checkpoint = 5, start = None):
 
     model = None
     total_loss = None
@@ -178,8 +178,8 @@ def train(num_self_play = 100, num_epoch = 20, mini_size = 10, lr = 1e-3, checkp
         # get batch and split into mini-batches    
         batch_state, batch_pi, batch_z = self_play(player, player_cpy)
         mini_states = to_mini_batch(batch_state, mini_size)
-        mini_pi = to_mini_batch(batch_pi)
-        mini_z = to_mini_batch(batch_z)
+        mini_pi = to_mini_batch(batch_pi, mini_size)
+        mini_z = to_mini_batch(batch_z, mini_size)
 
         # training the network
         for epoch in range(num_epoch):
@@ -208,13 +208,13 @@ def train(num_self_play = 100, num_epoch = 20, mini_size = 10, lr = 1e-3, checkp
 
 
 def main():
-    train(30,start=5)
+    # train(100,start=None )
 
-    # with open('loss.txt','rb') as fp:
-    #     loss = pickle.load(fp)
-    #     print(len(loss))
-    #     plt.plot(list(range(1,len(loss)+1)), loss)
-    #     plt.show()
+    with open('loss.txt','rb') as fp:
+        loss = pickle.load(fp)
+        plt.plot(list(range(1,len(loss)+1)), loss)
+        
+        plt.show()
 
 if __name__ == '__main__':
     main()
