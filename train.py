@@ -18,20 +18,24 @@ given a history list of (board, probs)
 output sample and label sets in mini-batches
 '''
 def to_dataset(history, mini_size = 20):
+    # shuffle
     random.shuffle(history)
     board_batch = []
     prob_batch = []
     for board, prob in history:
-        board = torch.from_numpy(board[None])
-        board_batch.append(board)
-        prob = torch.from_numpy(prob)
+        board_batch.append(board[None])
         prob_batch.append(prob)
+    
+    board_batch = np.array(board_batch)
+    prob_batch = np.array(prob_batch)
 
-    
-    
+    board_batch = torch.from_numpy(board_batch)
+    prob_batch = torch.from_numpy(prob_batch)
 
-    
-    return board_batch, prob_batch
+    mini_board = to_mini_batch(board_batch, mini_size)
+    mini_prob = to_mini_batch(prob_batch, mini_size)
+
+    return mini_board, mini_prob
 
 '''
 Given a batch dataset and a size
@@ -39,7 +43,7 @@ Output a list of mini-batches specified by the mini-batch size
 '''
 def to_mini_batch(dataset, mini_size):
     batch = []
-    dim = dataset.shape[0]
+    dim = dataset.size()[0]
     for index in range(0,dim,mini_size):
         batch.append(dataset[index:index+mini_size])
     
@@ -58,29 +62,10 @@ def self_play(player1:MCTSPlayer,player2:MCTSPlayer):
     game.play()
     hist1 = player1.get_history()
     hist2 = player2.get_history()
-    winner = game.winner
-    
-    data1 = to_dataset(hist1,winner)
-    data2 = to_dataset(hist2,winner)
-    dataset = data1 + data2
-
-    # shuffle the dataset
-    random.shuffle(dataset)
-
-    states = []
-    probs = []
-    scores = []
-    for data in dataset:
-        states.append([data.board])
-        probs.append(data.probs)
-        scores.append(data.score)
-    
-    states = np.array(states)
-    probs = np.array(probs)
-    scores = np.array(scores).reshape(-1,1)
-
-    
-    return torch.tensor(states).float(), torch.tensor(probs).float(), torch.tensor(scores).float()
+    data = hist1 + hist2
+    player1.reset()
+    player2.reset()
+    return data
 
 '''
 cross-entropy loss of move probabilities
@@ -123,6 +108,32 @@ def eval(current_best:MCTSPlayer, baseline:MCTSPlayer, num_games = 20):
     
     return score/num_games
 
+def generate_dataset(num_self_play=100, checkpoint = 5):
+    pol = RandomPolicy()
+    sim = RandomPlayer()
+    player = MCTSPlayer(pol, sim, store_hist=True)
+    player_cpy = MCTSPlayer(pol, sim, store_hist=True)
+    dataset = None
+    try:
+        with open('dataset.txt','rb') as fp:
+            dataset = pickle.load(fp)
+        print(f"Dataset file loaded. Currently has {len(dataset)} data points. Continue generating data.")
+    except FileNotFoundError:
+        dataset = []
+        print('Cannot find dataset file. Start from the beginning.')
+    
+    for game_num in tqdm(range(num_self_play)):
+        if game_num % checkpoint == 0:
+            with open('dataset.txt', 'wb') as fp:
+                pickle.dump(dataset,fp)
+        
+        data = self_play(player, player_cpy)
+        dataset.extend(data)
+    
+    with open('dataset.txt', 'wb') as fp:
+        pickle.dump(dataset,fp)
+
+
             
 
 '''
@@ -133,98 +144,82 @@ lr: learning rate
 checkpoint: number of runs per save
 start: starting number of model to continue
 '''
-def train(num_self_play = 100, num_epoch = 30, mini_size = 20, lr = 1e-3, checkpoint = 5, start = None):
+def train(num_epoch = 30, mini_size = 20, lr = 1e-3, load_model = False):
 
     model = None
     total_loss = None
 
-    # check if the starting point is specified
-    if start is None:
-        print('Training the network from the beginning.')
-        model = Network()
-        start = 0
-    else: 
-        model = torch.load(f'./models/model_{start}.pt')
-        print(colored(f'Model {start} successfully loaded.', 'green'))
-    
-
-    # load the loss record
     try:
+        with open('dataset.txt','rb') as fp:
+            dataset = pickle.load(fp)
+            print(colored('Dataset successfully loaded.','green'))
+    except FileNotFoundError:
+        print('Cannot find dataset. Training aborted.')
+        return
+
+    # check if the starting point is specified
+    if load_model:
+        model = torch.load('model.pt')
+        print(colored('Model successfully loaded.', 'green'))
         with open('loss.txt','rb') as fp:
             total_loss = pickle.load(fp)
-            print(colored('Loss record successfully loaded.','green'))
-    except FileNotFoundError:
-        print('Cannot find loss record file. Start from the beginning.')
+        print(colored('Loss record successfully loaded.','green'))
+    else:
+        print(colored('Training the network from fresh.','blue'))
+        model = Network()
         total_loss = []
-    
-    # check if picking up the latest
-    if start != len(total_loss):
-        input(colored('Warning:starting point and the number of losses are not equal! Press ENTER if continues anyway.', 'red'))
-
 
     optimizer = optim.Adam(model.parameters(),lr)
-    # creating player and its copy
-    pol = NNPolicy(model)
-    sim = NNPlayer(model)
-    player = MCTSPlayer(pol, sim, num_simulation=600, store_hist=True)
-    player_cpy = MCTSPlayer(pol, sim, num_simulation=600, store_hist=True)
 
-    print(colored('Start self-playing process:', 'green'))
-    for index in tqdm(range(start, start + num_self_play)):
-        # saving the model and loss
-        if index % checkpoint == 0:
-            with open('loss.txt', 'wb') as fp:
-                pickle.dump(total_loss,fp)    
-            torch.save(model,f'./models/model_{index}.pt')
+    print(colored('Start training process:', 'green'))
 
-        # get batch and split into mini-batches    
-        batch_state, batch_pi, batch_z = self_play(player, player_cpy)
-        mini_states = to_mini_batch(batch_state, mini_size)
-        mini_pi = to_mini_batch(batch_pi, mini_size)
-        mini_z = to_mini_batch(batch_z, mini_size)
+    # get batch and split into mini-batches    
+    mini_board, mini_prob = to_dataset(dataset)
 
-        # training the network
-        for epoch in range(num_epoch):
-            for state, pi, z in zip(mini_states, mini_pi, mini_z):
-                p,v = model(state)
-                optimizer.zero_grad()
-                loss = loss_function(z,v,pi,p)
-                loss.backward()
-                optimizer.step()
-        
-        # compute the mean loss for the entire batch
-        batch_p, batch_v = model(batch_state)
-        mean_loss = loss_function(batch_z, batch_v, batch_pi, batch_p)
-        total_loss.append(mean_loss.item())
+    # training the network
+    for epoch in tqdm(range(num_epoch)):
+        for index in range(len(mini_board)):
+            board = mini_board[index]
+            pi = mini_prob[index]
 
-        # reset players
-        pol = NNPolicy(model)
-        sim = NNPlayer(model)
-        player = MCTSPlayer(pol, sim, store_hist=True)
-        player_cpy = MCTSPlayer(pol, sim, store_hist=True)
+            p = model(board)
+            optimizer.zero_grad()
+            loss = loss_function(pi,p)
+            if index % 10 == 0:
+                total_loss.append(loss.item())
+            loss.backward()
+            optimizer.step()
+    
+
     
     # saving the model and the loss record at the end
     with open('loss.txt', 'wb') as fp:
         pickle.dump(total_loss,fp)    
-    torch.save(model,f'./models/model_{start + num_self_play}.pt')
+    torch.save(model,'model.pt')
 
 
 def main():
-    pol = RandomPolicy()
-    sim = RandomPlayer()
-    p1 = MCTSPlayer(pol,sim, 100, True)
-    p2 = RandomPlayer()
+    # generate_dataset()
+    train(num_epoch=100, lr=0.0001,load_model=False)
+    # pol = RandomPolicy()
+    # sim = RandomPlayer()
+    # p1 = MCTSPlayer(pol,sim, 100, True)
+    # p2 = RandomPlayer()
 
-    game = UltimateTTT(p1,p2)
+    # game = UltimateTTT(p1,p2)
 
     
-    game.play()
-    hist = p1.get_history()
-    board, prob = to_dataset(hist)
+    # game.play()
+    # hist = p1.get_history()
+    # board, prob = to_dataset(hist)
     
-    print(board)
+    # print(board)
     
-    print(prob)
+    # print(prob)
+    with open('loss.txt','rb') as fp:
+        loss = pickle.load(fp)
+        plt.plot(range(1,len(loss)+1), loss)
+        plt.show()
 
 
 if __name__ == '__main__':
