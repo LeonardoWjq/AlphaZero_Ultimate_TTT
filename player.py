@@ -127,8 +127,6 @@ class NNPlayer(Player):
         sum = torch.sum(valid_probs)
         if (sum != 0):
             valid_probs = valid_probs/sum
-        else:
-            valid_probs = valid_probs + (1/len(valid_moves))
 
     
         max_move_indices = []
