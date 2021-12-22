@@ -35,7 +35,7 @@ def to_dataset(history, mini_size = 20):
     mini_board = to_mini_batch(board_batch, mini_size)
     mini_prob = to_mini_batch(prob_batch, mini_size)
 
-    return mini_board, mini_prob
+    return mini_board, mini_prob, board_batch, prob_batch
 
 '''
 Given a batch dataset and a size
@@ -154,7 +154,7 @@ def train(num_epoch = 30, mini_size = 20, lr = 1e-3, load_model = False):
             dataset = pickle.load(fp)
             print(colored('Dataset successfully loaded.','green'))
     except FileNotFoundError:
-        print('Cannot find dataset. Training aborted.')
+        print(colored('Cannot find dataset. Training aborted.','red'))
         return
 
     # check if the starting point is specified
@@ -174,8 +174,9 @@ def train(num_epoch = 30, mini_size = 20, lr = 1e-3, load_model = False):
     print(colored('Start training process:', 'green'))
 
     # get batch and split into mini-batches    
-    mini_board, mini_prob = to_dataset(dataset)
+    mini_board, mini_prob, board_batch, prob_batch = to_dataset(dataset, mini_size)
 
+    
     # training the network
     for epoch in tqdm(range(num_epoch)):
         for index in range(len(mini_board)):
@@ -185,10 +186,12 @@ def train(num_epoch = 30, mini_size = 20, lr = 1e-3, load_model = False):
             p = model(board)
             optimizer.zero_grad()
             loss = loss_function(pi,p)
-            if index % 10 == 0:
-                total_loss.append(loss.item())
             loss.backward()
             optimizer.step()
+        
+        batch_p = model(board_batch)
+        total_loss.append(loss_function(prob_batch, batch_p).item())
+        
     
 
     
@@ -197,29 +200,19 @@ def train(num_epoch = 30, mini_size = 20, lr = 1e-3, load_model = False):
         pickle.dump(total_loss,fp)    
     torch.save(model,'model.pt')
 
-
-def main():
-    # generate_dataset()
-    train(num_epoch=100, lr=0.0001,load_model=False)
-    # pol = RandomPolicy()
-    # sim = RandomPlayer()
-    # p1 = MCTSPlayer(pol,sim, 100, True)
-    # p2 = RandomPlayer()
-
-    # game = UltimateTTT(p1,p2)
-
-    
-    # game.play()
-    # hist = p1.get_history()
-    # board, prob = to_dataset(hist)
-    
-    # print(board)
-    
-    # print(prob)
+def plot_figure():
     with open('loss.txt','rb') as fp:
         loss = pickle.load(fp)
         plt.plot(range(1,len(loss)+1), loss)
         plt.show()
+
+
+def main():
+    # generate_dataset()
+    train(num_epoch=100, lr=0.0005,load_model=False, mini_size=10)
+    plot_figure()
+    
+    
 
 
 if __name__ == '__main__':

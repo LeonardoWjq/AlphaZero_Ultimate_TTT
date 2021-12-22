@@ -16,14 +16,16 @@ class NNPolicy(Policy):
     '''
     def get_probs(self, state: dict):
         valid_moves = state['valid_move']
-        board_state = torch.Tensor(state['inner']*state['current'])
-        move_probs = self.network(board_state[None, None])
+        board = state['inner']*state['current']
+        board = board[None,None]
+        board_state = torch.from_numpy(board)
+        move_probs = self.network(board_state)
 
         valid_move_probs = []
         total_valid_probs = 0
 
         for move in valid_moves:
-            valid_prob = move_probs[0][0][move].item()
+            valid_prob = move_probs[0][move].item()
             valid_move_probs.append(valid_prob)
             total_valid_probs += valid_prob
         

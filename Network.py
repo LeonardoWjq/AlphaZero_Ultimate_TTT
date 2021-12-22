@@ -11,21 +11,21 @@ class Network(nn.Module):
 
         # Layer Definitions
         self.conv1 = nn.Conv2d(in_channels=1, 
-                               out_channels=128, 
+                               out_channels=64, 
                                kernel_size=3, 
-                               stride=3)
-        self.conv2 = nn.Conv2d(in_channels=128, 
-                               out_channels=128, 
+                               stride=1)
+        self.conv2 = nn.Conv2d(in_channels=64, 
+                               out_channels=64, 
                                kernel_size=1, 
                                stride=1)
-        self.conv3 = nn.Conv2d(in_channels=128,
-                               out_channels=128, 
+        self.conv3 = nn.Conv2d(in_channels=64,
+                               out_channels=64, 
                                kernel_size=1, 
                                stride=1)
 
-        self.fc_1 = nn.Linear(128*3*3, 512)
+        self.fc_1 = nn.Linear(64*7*7, 128)
         # Then ReLU
-        self.fc_2 = nn.Linear(512, 256)
+        self.fc_2 = nn.Linear(128, 256)
         # Then ReLU
         self.fc_pi = nn.Linear(256, 81)
         # Then Softmax
@@ -38,7 +38,7 @@ class Network(nn.Module):
         x = F.relu(x)
         x = self.conv3(x)
         x = F.relu(x)
-        x = x.view(-1, 128*3*3)
+        x = x.view(-1, 64*7*7)
         x = self.fc_1(x)
         x = F.relu(x)
         x = self.fc_2(x)

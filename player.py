@@ -106,11 +106,12 @@ class NNPlayer(Player):
     def move(self, state: dict) -> int:
         # board relative to the current player 1 for itself, -1 for its opponent
         board = state['inner']*state['current']
-        board = board[None, None, :]
-        board = torch.from_numpy(board).float()
+        board = board[None, None]
+        board = torch.from_numpy(board)
 
         # get the probabilities in shape (,81)
-        probs = self.network(board)[0][0]
+        probs = self.network(board)[0]
+        
         valid_moves = state['valid_move']
         valid_probs = probs[valid_moves]
         # normalize valid probabilities so that they sum to 1
@@ -136,9 +137,9 @@ class NNPlayer(Player):
 
 
 class AlphaZeroPlayer(Player):
-    def __init__(self, model_num, num_simulation = 600) -> None:
+    def __init__(self, num_simulation = 600) -> None:
         try:
-            model = torch.load(f'./models/model_{model_num}.pt')
+            model = torch.load('model.pt')
             print(colored('Neural network model loaded successfully.','green'))
         except FileNotFoundError:
             model = Network()
