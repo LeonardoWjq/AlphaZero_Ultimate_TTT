@@ -3,7 +3,6 @@ from torch import nn
 from torch.nn import functional as F
 
 
-# Dual-headed network
 class Network(nn.Module):
     def __init__(self):
         super(Network, self).__init__()

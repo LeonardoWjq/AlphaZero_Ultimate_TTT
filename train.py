@@ -1,8 +1,7 @@
-from collections import namedtuple
 from Network import Network
 from environment import UltimateTTT
-from player import MCTSPlayer, NNPlayer, RandomPlayer
-from policy import NNPolicy, RandomPolicy
+from player import MCTSPlayer, RandomPlayer
+from policy import RandomPolicy
 from tqdm import tqdm
 from termcolor import colored
 import torch
@@ -14,12 +13,17 @@ import pickle
 import random
 
 '''
-given a history list of (board, probs)
-output sample and label sets in mini-batches
+history: list of (state, probability) pair
+split_rate: controls the train/validation set split rate
+shuffle: a switch to indicate whether the dataset should be shuffled
+output training features, training labels, validation features, validation labels
 '''
-def to_dataset(history, mini_size = 20):
-    # shuffle
-    random.shuffle(history)
+def to_dataset(history, split_rate = 0.7, shuffle = True):
+    # shuffle the data
+    if shuffle:
+        random.shuffle(history)
+
+
     board_batch = []
     prob_batch = []
     for board, prob in history:
@@ -29,13 +33,19 @@ def to_dataset(history, mini_size = 20):
     board_batch = np.array(board_batch)
     prob_batch = np.array(prob_batch)
 
+    # get the board and prob batch data in tensors
     board_batch = torch.from_numpy(board_batch)
     prob_batch = torch.from_numpy(prob_batch)
 
-    mini_board = to_mini_batch(board_batch, mini_size)
-    mini_prob = to_mini_batch(prob_batch, mini_size)
+    # split into training/validation datasets
+    split = int(len(history)*split_rate)
+    train_board = board_batch[:split]
+    val_board = board_batch[split:]
 
-    return mini_board, mini_prob, board_batch, prob_batch
+    train_prob = prob_batch[:split]
+    val_prob = prob_batch[split:]
+
+    return train_board, train_prob, val_board, val_prob
 
 '''
 Given a batch dataset and a size
@@ -48,8 +58,6 @@ def to_mini_batch(dataset, mini_size):
         batch.append(dataset[index:index+mini_size])
     
     return batch
-
-
 
 
 '''
@@ -75,6 +83,7 @@ def loss_function(pi, p):
     pol_loss = cel(pi,p)
     
     return pol_loss
+
 
 '''
 Given a current best player, a baseline player and the number of games to play
@@ -108,20 +117,28 @@ def eval(current_best:MCTSPlayer, baseline:MCTSPlayer, num_games = 20):
     
     return score/num_games
 
+'''
+given the number of self-play games and checkpoint
+generate more game data through self play and store the data per checkpoint number of games
+'''
 def generate_dataset(num_self_play=100, checkpoint = 5):
+    # make players
     pol = RandomPolicy()
     sim = RandomPlayer()
     player = MCTSPlayer(pol, sim, store_hist=True)
     player_cpy = MCTSPlayer(pol, sim, store_hist=True)
     dataset = None
+
+    # open exsiting dataset if there is one
     try:
         with open('dataset.txt','rb') as fp:
             dataset = pickle.load(fp)
-        print(f"Dataset file loaded. Currently has {len(dataset)} data points. Continue generating data.")
+        print(colored(f"Dataset file loaded. Currently has {len(dataset)} data points. Continue generating data.","green"))
     except FileNotFoundError:
         dataset = []
-        print('Cannot find dataset file. Start from the beginning.')
+        print(colored('Cannot find dataset file. Start from the beginning.','blue'))
     
+    # generate game data
     for game_num in tqdm(range(num_self_play)):
         if game_num % checkpoint == 0:
             with open('dataset.txt', 'wb') as fp:
@@ -130,25 +147,24 @@ def generate_dataset(num_self_play=100, checkpoint = 5):
         data = self_play(player, player_cpy)
         dataset.extend(data)
     
+    # save the dataset at the end
     with open('dataset.txt', 'wb') as fp:
         pickle.dump(dataset,fp)
 
 
-            
-
 '''
-num_self_play: number of self-playing games
 num_epoch: number of epoch for each batch of data
 mini_size: size of mini-batch
 lr: learning rate
-checkpoint: number of runs per save
-start: starting number of model to continue
+load_model: load model to continue if True, start afresh otherwise
 '''
 def train(num_epoch = 30, mini_size = 20, lr = 1e-3, load_model = False):
 
     model = None
-    total_loss = None
+    train_loss = []
+    val_loss = []
 
+    # try loading the dataset
     try:
         with open('dataset.txt','rb') as fp:
             dataset = pickle.load(fp)
@@ -157,26 +173,29 @@ def train(num_epoch = 30, mini_size = 20, lr = 1e-3, load_model = False):
         print(colored('Cannot find dataset. Training aborted.','red'))
         return
 
-    # check if the starting point is specified
+    # check if load an existin model
     if load_model:
         model = torch.load('model.pt')
         print(colored('Model successfully loaded.', 'green'))
-        with open('loss.txt','rb') as fp:
-            total_loss = pickle.load(fp)
-        print(colored('Loss record successfully loaded.','green'))
+
     else:
         print(colored('Training the network from fresh.','blue'))
         model = Network()
-        total_loss = []
 
+    # initialize optimizer
     optimizer = optim.Adam(model.parameters(),lr)
 
     print(colored('Start training process:', 'green'))
 
     # get batch and split into mini-batches    
-    mini_board, mini_prob, board_batch, prob_batch = to_dataset(dataset, mini_size)
+    train_board, train_prob, val_board, val_prob = to_dataset(dataset)
 
-    
+    mini_board = to_mini_batch(train_board, mini_size)
+    mini_prob = to_mini_batch(train_prob, mini_size)
+
+
+    best_val_loss = float('inf')
+    best_epoch = -1
     # training the network
     for epoch in tqdm(range(num_epoch)):
         for index in range(len(mini_board)):
@@ -189,31 +208,58 @@ def train(num_epoch = 30, mini_size = 20, lr = 1e-3, load_model = False):
             loss.backward()
             optimizer.step()
         
-        batch_p = model(board_batch)
-        total_loss.append(loss_function(prob_batch, batch_p).item())
+        # compute training loss
+        train_predict = model(train_board)
+        loss_train = loss_function(train_prob, train_predict).item()
+        train_loss.append(loss_train)
+
+        # compute validation loss
+        val_predict = model(val_board)
+        loss_val = loss_function(val_prob, val_predict).item()
+        val_loss.append(loss_val)
+
+        # update best model
+        if loss_val < best_val_loss:
+            best_val_loss = loss_val
+            best_epoch = epoch
+            torch.save(model, 'model.pt')
+        
+    print(colored(f'The best validation loss is {best_val_loss}.','cyan'))
+    print(colored(f'The epoch of the best validation loss is {best_epoch}.','cyan'))
+
+    # saving the loss records
+    with open('train_loss.txt', 'wb') as fp:
+        pickle.dump(train_loss,fp)    
+    with open('val_loss.txt', 'wb') as fp:
+        pickle.dump(val_loss, fp)
+
+'''
+plot the learning curves of the neural network
+'''
+def plot_figure():
+    plt.figure()
+    with open('train_loss.txt','rb') as fp:
+        train_loss = pickle.load(fp)
+        plt.plot(range(1,len(train_loss)+1), train_loss, label='Training Loss')
         
     
+    with open('val_loss.txt','rb') as fp:
+        val_loss = pickle.load(fp)
+        plt.plot(range(1,len(val_loss)+1), val_loss, label="Validation Loss") 
 
-    
-    # saving the model and the loss record at the end
-    with open('loss.txt', 'wb') as fp:
-        pickle.dump(total_loss,fp)    
-    torch.save(model,'model.pt')
-
-def plot_figure():
-    with open('loss.txt','rb') as fp:
-        loss = pickle.load(fp)
-        plt.plot(range(1,len(loss)+1), loss)
-        plt.show()
+    plt.title('Learning Curve of the Deep Neural Network')
+    plt.xlabel('Epochs')
+    plt.ylabel('Mean Cross Entropy Loss')
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
 def main():
     # generate_dataset()
-    train(num_epoch=100, lr=0.0005,load_model=False, mini_size=10)
+    train(num_epoch = 150,lr=0.0002,load_model=False, mini_size=20)
     plot_figure()
     
-    
-
 
 if __name__ == '__main__':
     main()
