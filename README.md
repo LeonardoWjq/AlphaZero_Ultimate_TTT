@@ -1,14 +1,3 @@
 # AlphaZero Ultimate Tic-Tac-Toe
-## TODO
-- Implement Game Environment
-- Implement the AlphaZero Framework
-  - Neural Network
-  - MCTS
-  - Training Loop
-- Train the Model
-- Test Performance
-- Ablation Study and more (Optional)
-- GUI (Optional)
-- Write up Final Report
-- Course Ends!
+## run demo.py to play against the AlphaZero player
 
