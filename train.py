@@ -1,6 +1,6 @@
 from Network import Network
 from environment import UltimateTTT
-from player import MCTSPlayer, RandomPlayer
+from player import MCTSPlayer, Player, RandomPlayer
 from policy import RandomPolicy
 from tqdm import tqdm
 from termcolor import colored
@@ -89,9 +89,9 @@ def loss_function(pi, p):
 Given a current best player, a baseline player and the number of games to play
 Output a normalized score in [-1,1] for the curent best player based on the game results
 '''
-def eval(current_best:MCTSPlayer, baseline:MCTSPlayer, num_games = 20):
-    score = 0
-    print("Evaluation in progress:")
+def eval(current_best:Player, baseline:Player, num_games = 20):
+    result = {'win':0, 'lose':0, 'draw':0}
+    print(colored("Evaluation in progress:",'green'))
     for i in tqdm(range(num_games)):
         # alternating x and o
         if i % 2 == 0:
@@ -99,23 +99,29 @@ def eval(current_best:MCTSPlayer, baseline:MCTSPlayer, num_games = 20):
             game.play()
             final_state = game.get_state()
             if final_state['winner'] == 1:
-                score +=1
+                result['win'] += 1
             elif final_state['winner'] == -1:
-                score -= 1
+                result['lose'] += 1
+            else:
+                result['draw'] += 1
         else:
             game = UltimateTTT(baseline, current_best)
             game.play()
             final_state = game.get_state()
             if final_state['winner'] == -1:
-                score +=1
+                result['win'] += 1
             elif final_state['winner'] == 1:
-                score -= 1
+                result['lose'] += 1
+            else:
+                result['draw'] += 1
         
-        # reset both players
-        current_best.reset()
-        baseline.reset()
+        # reset both players if needed
+        if type(current_best).__name__ == 'MCTSPlayer' or type(current_best).__name__ == 'AlphaZeroPlayer':
+            current_best.reset()
+        if type(baseline).__name__ == 'MCTSPlayer' or type(baseline).__name__ == 'AlphaZeroPlayer':
+            baseline.reset()
     
-    return score/num_games
+    return result
 
 '''
 given the number of self-play games and checkpoint
@@ -159,6 +165,7 @@ lr: learning rate
 load_model: load model to continue if True, start afresh otherwise
 '''
 def train(num_epoch = 30, mini_size = 20, lr = 1e-3, load_model = False):
+
 
     model = None
     train_loss = []
@@ -256,9 +263,9 @@ def plot_figure():
 
 
 def main():
-    # generate_dataset()
-    train(num_epoch = 150,lr=0.0002,load_model=False, mini_size=20)
-    plot_figure()
+    generate_dataset()
+    # train(num_epoch = 100,lr=0.0001,load_model=False, mini_size=30)
+    # plot_figure()
     
 
 if __name__ == '__main__':

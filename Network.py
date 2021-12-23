@@ -22,9 +22,9 @@ class Network(nn.Module):
                                kernel_size=1, 
                                stride=1)
 
-        self.fc_1 = nn.Linear(64*7*7, 128)
+        self.fc_1 = nn.Linear(64*7*7, 512)
         # Then ReLU
-        self.fc_2 = nn.Linear(128, 256)
+        self.fc_2 = nn.Linear(512, 256)
         # Then ReLU
         self.fc_pi = nn.Linear(256, 81)
         # Then Softmax
