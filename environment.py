@@ -1,11 +1,6 @@
 import numpy as np
-import player as ply
 from termcolor import colored
-from tqdm import tqdm
-import torch
 
-
-from policy import RandomPolicy
 class UltimateTTT:
 
     def __init__(self, player1, player2, state = None) -> None:
@@ -377,44 +372,5 @@ class UltimateTTT:
         else:
             raise ValueError('Board name not recognized.')
     
-    
-
-def main():
-    # pol = RandomPolicy()
-    # sim = ply.RandomPlayer()
-    model = torch.load('model.pt')
-    p2 = ply.NNPlayer(model)
-    p1 = ply.RandomPlayer()
-    
-
-   
-    x_win = 0
-    o_win = 0
-    tie = 0
-
-    for _ in tqdm(range(1000)):
-        game = UltimateTTT(player1=p1, player2=p2)
-        game.play(False)
-        final_state = game.get_state()
-        if final_state['winner'] == 1:
-            x_win+=1
-        elif final_state['winner'] == -1:
-            o_win+=1
-        elif final_state['winner'] == 2:
-            tie += 1
-        
-        # p1.reset()
-        # p2.reset()
-        
-    
-    print('number of wins for x:', x_win)
-    print('number of wins for o:', o_win)
-    print('number of ties:', tie)
-    
-    
-  
-    # game.display_board()
-if __name__ == '__main__':
-    main()
 
 

@@ -3,7 +3,7 @@ import torch
 import random
 import mcts
 from Network import Network
-from policy import NNPolicy, RandomPolicy
+from policy import NNPolicy
 from termcolor import colored
 class Player:
     def move(self, state: dict)->int:
@@ -137,7 +137,7 @@ class NNPlayer(Player):
 
 
 class AlphaZeroPlayer(Player):
-    def __init__(self, num_simulation = 600) -> None:
+    def __init__(self, num_simulation = 200) -> None:
         try:
             model = torch.load('model.pt')
             print(colored('Neural network model loaded successfully.','green'))

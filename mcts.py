@@ -1,4 +1,3 @@
-import player as ply
 import environment as env
 import numpy as np
 
