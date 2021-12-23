@@ -12,6 +12,11 @@ import numpy as np
 import pickle
 import random
 
+# set random seed
+random.seed(0)
+torch.manual_seed(0)
+np.random.seed(0)
+
 '''
 history: list of (state, probability) pair
 split_rate: controls the train/validation set split rate
