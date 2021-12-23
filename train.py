@@ -13,9 +13,9 @@ import pickle
 import random
 
 # set random seed
-random.seed(0)
-torch.manual_seed(0)
-np.random.seed(0)
+random.seed(1234)
+torch.manual_seed(1234)
+np.random.seed(1234)
 
 '''
 history: list of (state, probability) pair
@@ -277,7 +277,7 @@ def main():
     mcts_player = MCTSPlayer(pol,rand_player)
     alpha_player = AlphaZeroPlayer()
     
-    result = eval(alpha_player, rand_player)
+    result = eval(alpha_player, mcts_player)
     print(f"Number of wins: {result['win']}")
     print(f"Number of losts: {result['lose']}")
     print(f"Number of draws: {result['draw']}")
