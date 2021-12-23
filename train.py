@@ -87,7 +87,7 @@ def loss_function(pi, p):
 
 '''
 Given a current best player, a baseline player and the number of games to play
-Output a normalized score in [-1,1] for the curent best player based on the game results
+Output the game result as a dictionary
 '''
 def eval(current_best:Player, baseline:Player, num_games = 20):
     result = {'win':0, 'lose':0, 'draw':0}
@@ -164,7 +164,7 @@ mini_size: size of mini-batch
 lr: learning rate
 load_model: load model to continue if True, start afresh otherwise
 '''
-def train(num_epoch = 30, mini_size = 20, lr = 1e-3, load_model = False):
+def train(num_epoch = 100, mini_size = 20, lr = 1e-4, load_model = False):
 
 
     model = None
@@ -259,13 +259,14 @@ def plot_figure():
     plt.ylabel('Mean Cross Entropy Loss')
     plt.legend()
     plt.grid()
+    plt.savefig('learning_curve.jpg')
     plt.show()
 
 
 def main():
-    generate_dataset()
-    # train(num_epoch = 100,lr=0.0001,load_model=False, mini_size=30)
-    # plot_figure()
+    # generate_dataset()
+    # train()
+    plot_figure()
     
 
 if __name__ == '__main__':
