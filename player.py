@@ -45,7 +45,7 @@ class HumanPlayer(Player):
 
 class MCTSPlayer(Player):
     # initialize the attributes
-    def __init__(self,prior_policy,sim_player,num_simulation = 600, store_hist = False) -> None:
+    def __init__(self,prior_policy,sim_player,num_simulation = 200, store_hist = False) -> None:
         self.pol = prior_policy
         self.sim = sim_player
         self.mcts_agent = None

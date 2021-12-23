@@ -1,6 +1,6 @@
 from Network import Network
 from environment import UltimateTTT
-from player import MCTSPlayer, Player, RandomPlayer
+from player import AlphaZeroPlayer, MCTSPlayer, Player, RandomPlayer
 from policy import RandomPolicy
 from tqdm import tqdm
 from termcolor import colored
@@ -266,7 +266,17 @@ def plot_figure():
 def main():
     # generate_dataset()
     # train()
-    plot_figure()
+    # plot_figure()
+    rand_player = RandomPlayer()
+    pol = RandomPolicy()
+    mcts_player = MCTSPlayer(pol,rand_player)
+    alpha_player = AlphaZeroPlayer()
+    
+    result = eval(alpha_player, rand_player)
+    print(f"Number of wins: {result['win']}")
+    print(f"Number of losts: {result['lose']}")
+    print(f"Number of draws: {result['draw']}")
+
     
 
 if __name__ == '__main__':
