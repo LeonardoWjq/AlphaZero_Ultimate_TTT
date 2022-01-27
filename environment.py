@@ -1,5 +1,6 @@
 import numpy as np
 from termcolor import colored
+import player
 
 class UltimateTTT:
 
@@ -12,6 +13,7 @@ class UltimateTTT:
             self.winner = state['winner']
             self.previous_move = state['previous']
             self.next_valid_move = state['valid_move']
+            self.play_history = state['history']
         else:
             # player x : 1, player o: -1, empty: 0
             self.inner_board = np.zeros((9,9))
@@ -26,6 +28,7 @@ class UltimateTTT:
 
             self.previous_move = None
             self.next_valid_move = list(range(0,81))
+            self.play_history = []
 
         self.player_x = player1
         self.player_o = player2
@@ -42,7 +45,8 @@ class UltimateTTT:
             "game_end":self.game_end,
             "winner":self.winner,
             "previous":self.previous_move,
-            "valid_move":self.next_valid_move
+            "valid_move":self.next_valid_move,
+            "history":self.play_history
         }
         return state
     
@@ -51,6 +55,9 @@ class UltimateTTT:
     given the move, update the game state
     '''
     def update_game_state(self,move):
+        # add current state to history
+        self.play_history.append(self.get_state())
+
         # update previous move
         self.previous_move = move
         # update board state
@@ -61,6 +68,28 @@ class UltimateTTT:
         self.check_winner()
         # switch player
         self.switch()
+
+        
+    
+    '''
+    Undo the previous move
+    Restore the previous game state
+    '''
+    def undo(self):
+        if len(self.play_history) == 0:
+            print(colored('No more game history. Undo was unsuccessful.','red'))
+        else:
+            last_state = self.play_history.pop()
+            self.inner_board = np.copy(last_state['inner'])
+            self.outer_board = np.copy(last_state['outer'])
+            self.current_player = last_state['current']
+            self.game_end = last_state['game_end']
+            self.winner = last_state['winner']
+            self.previous_move = last_state['previous']
+            self.next_valid_move = last_state['valid_move']
+           
+                
+
 
 
     '''
@@ -222,8 +251,10 @@ class UltimateTTT:
                                 for j in range(n*3, n*3 + 3):
                                     if self.inner_board[i,j] == 0:
                                         valid_moves.append(self.map_value(i,j))
-            
-            self.next_valid_move = valid_moves
+        else:
+            valid_moves = list(range(0,81))
+        
+        self.next_valid_move = valid_moves
             
 
     '''
@@ -307,6 +338,7 @@ class UltimateTTT:
         valid_move_coord = map(str, list(valid_move_coord))
         valid_move_coord = ' '.join(valid_move_coord)
         print('valid positions: ' + valid_move_coord + '\n')
+
     '''
     display the selected board to the console
     '''
@@ -372,5 +404,28 @@ class UltimateTTT:
         else:
             raise ValueError('Board name not recognized.')
     
+def main():
+    p1 = player.HumanPlayer()
+    p2 = player.RandomPlayer()
+    game = UltimateTTT(p1, p2)
+    game.update_game_state(10)
+    game.display_board()
+    game.display_board('outer')
+    game.undo()
 
+    game.update_game_state(44)
+    game.display_board()
+    game.display_board('outer')
 
+    game.update_game_state(43)
+    game.display_board()
+    game.display_board('outer')
+
+    game.undo()
+    game.display_board()
+    game.display_board('outer')
+
+    
+
+if __name__ == '__main__':
+    main()
