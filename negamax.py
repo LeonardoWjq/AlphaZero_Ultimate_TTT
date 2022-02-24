@@ -1,62 +1,58 @@
 from environment import UltimateTTT
 from player import RandomPlayer
 import time
-class BooleanMinimax:
-    def __init__(self, player1, player2, root_player = 1, num_rand = 0) -> None:
-        self.p1 = player1
-        self.p2 = player2
-        self.num_rand = num_rand
-        self.game = UltimateTTT(self.p1, self.p2)
-        self.root_player = root_player
+class Negamax:
+    '''
+    game: a game object
+    target_player: the player whose result we want to seek
+                   1 for x and -1 for o
+    '''
+    def __init__(self, game:UltimateTTT, target_player = 1) -> None:
+        self.game = game
+        self.root = game.current_player
+        self.target = target_player
     
-    def random_play(self):
-        for _ in range(self.num_rand):
-            if self.game.game_end:
-                break
-            move = self.game.make_move()
-            self.game.update_game_state(move)
-    
-    def negamax(self, state) -> bool:
+    '''
+    The negamax algorithm
+    Return a bound: True -> win or draw; False -> lose or draw
+    '''
+    def negamax(self) -> bool:
         # statically evaluate
-        if state['game_end']:
-            return state['winner'] == state['current']
+        if self.game.game_end:
+            return self.game.winner == self.game.current_player
         else:
-            legal_moves = state['valid_move']
+            legal_moves = self.game.next_valid_move
             for move in legal_moves:
-                game = UltimateTTT(self.p1, self.p2, state)
-                game.update_game_state(move)
-                if not self.negamax(game.get_state()):
+                # game = UltimateTTT(self.p1, self.p2, state)
+                self.game.update_game_state(move)
+                oppo_win = self.negamax()
+                self.game.undo()
+                if not oppo_win:
+                    # draw or win
                     return True
-            # not a single winning move
+
+            # draw or lose 
             return False
 
-
-    def run(self):
-        self.random_play()
-        self.game.display_board()
-        self.game.display_board(board='outer')
-        current_player = self.game.current_player
+    '''
+    display: whether or not to display the board to begin with
+    This method runs the negamax algorithm and records the time
+    '''
+    def run(self, display = False):
+        if display:
+            self.game.display_board()
+            self.game.display_board(board='outer')
 
         start_time = time.time()
         # get the result for the current player
-        res = self.negamax(self.game.get_state())
-        print(f'Time to run Boolean Minimax: {time.time() - start_time}')
+        res = self.negamax()
+        time_used = time.time() - start_time
 
-        if current_player == self.root_player:
-            return res
+        print(f'Time to run Boolean Minimax: {time_used}')
+
+        # root player is the same as the target player
+        if self.root == self.target:
+            return res, time_used
+        # root player is different from the target player
         else:
-            return not res
-
-    
-def main():
-    player1 = RandomPlayer()
-    player2 = RandomPlayer()
-    agent = BooleanMinimax(player1, player2, num_rand=50)
-    result = agent.run()
-    if result:
-        print('Root Player is Winning.')
-    else:
-        print('Root Player is Not Winning.')
-
-if __name__ == '__main__':
-    main()
+            return (not res), time_used
