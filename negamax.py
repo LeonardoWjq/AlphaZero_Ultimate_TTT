@@ -1,5 +1,4 @@
 from environment import UltimateTTT
-from player import RandomPlayer
 import time
 class Negamax:
     '''
@@ -48,7 +47,7 @@ class Negamax:
         res = self.negamax()
         time_used = time.time() - start_time
 
-        print(f'Time to run Boolean Minimax: {time_used}')
+        print(f'Time to run Negamax: {time_used}')
 
         # root player is the same as the target player
         if self.root == self.target:

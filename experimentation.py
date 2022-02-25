@@ -1,6 +1,7 @@
-from unicodedata import name
 from environment import UltimateTTT
 from negamax import Negamax
+from boolean_minimax import BooleanMinimax
+from alpha_beta import AlphaBeta
 from player import RandomPlayer
 import numpy as np
 
@@ -16,10 +17,15 @@ def random_play(game:UltimateTTT, num_play = 50, seed = 0):
 def main():
     player = RandomPlayer()
     game = UltimateTTT(player,player)
-    random_play(game,50,2)
-    agent = Negamax(game)
-    res = agent.run(True)
-    print(res)
+    random_play(game,53,1)
+
+    negamax_agent = Negamax(game)
+    boolean_minimax_agent = BooleanMinimax(game)
+    alpha_beta_agent = AlphaBeta(game)
+    
+    print(negamax_agent.run())
+    print(boolean_minimax_agent.run())
+    print(alpha_beta_agent.run())
 
 if __name__ == '__main__':
     main()
