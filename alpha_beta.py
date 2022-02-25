@@ -1,5 +1,4 @@
 from environment import UltimateTTT
-from player import RandomPlayer
 import time
 class AlphaBeta:
     def __init__(self, game:UltimateTTT, target_player = 1) -> None:
@@ -43,7 +42,7 @@ class AlphaBeta:
         
         start_time = time.time()
         # get the result for the current player
-        value = self.alpha_beta_search(float('-inf'), float('inf'))
+        value = self.alpha_beta_search(-1, 1)
         time_used = time.time() - start_time
         print(f'Time to run Alpha-Beta Search: {time_used}')
         res = None
@@ -55,15 +54,3 @@ class AlphaBeta:
             res = -1 if self.root == self.target else 1
 
         return res, time_used
-
-    
-# def main():
-#     player1 = RandomPlayer()
-#     player2 = RandomPlayer()
-#     agent = AlphaBeta(player1, player2, num_rand=50)
-#     result = agent.run()
-#     current_player = 'x' if agent.game.current_player == 1 else 'o'
-#     print(f'Value of the current player {current_player} is {result}.')
-
-# if __name__ == '__main__':
-#     main()

@@ -9,20 +9,11 @@ Record = namedtuple('Record',['state', 'value', 'move'])
 
 class Transposition:
     
-    def __init__(self, player1, player2, root_player = 1, num_rand = 0) -> None:
-        self.p1 = player1
-        self.p2 = player2
-        self.num_rand = num_rand
-        self.game = UltimateTTT(self.p1, self.p2)
-        self.root_player = root_player
+    def __init__(self, game:UltimateTTT, target_player = 1) -> None:
+        self.game = game
+        self.root = game.current_player
+        self.target = target_player
         self.trans_table = {} # transposition table as a dictionary 
-    
-    def random_play(self):
-        for _ in range(self.num_rand):
-            if self.game.game_end:
-                break
-            move = self.game.make_move()
-            self.game.update_game_state(move)
     
     '''
     generate hash code of a game state based on the inner board
@@ -55,28 +46,29 @@ class Transposition:
         return True
 
 
-    def alpha_beta_tt(self, state, alpha, beta) -> int:
+    def alpha_beta_tt(self, alpha, beta) -> int:
         # statically evaluate
-        if state['game_end']:
+        if self.game.game_end:
             # if it is a tie
-            if state['winner'] == 2:
+            if self.game.winner == 2:
                 return 0
             # current player winning
-            if state['winner'] == state['current']:
+            if self.game.winner == self.game.current_player:
                 return 1
             # current player losing
             else:
                 return -1
         else:
             retrieved_record = None
-            hash_code = self.hash_function(state)
+            current_state = self.game.get_state()
+            hash_code = self.hash_function(current_state)
 
             # found entry in transposition table
             if hash_code in self.trans_table:
                 record_list = self.trans_table[hash_code]
                 for record in record_list:
                     # found the exact record
-                    if self.equal_state(record.state, state):
+                    if self.equal_state(record.state, current_state):
                         retrieved_record = record
                         break
 
@@ -91,14 +83,13 @@ class Transposition:
             
             # Did not find exact record
 
-            legal_moves = state['valid_move']
-            game = UltimateTTT(self.p1, self.p2, state)
+            legal_moves = self.game.next_valid_move
             best_move = -1
             best_value = -100
             for move in legal_moves:
-                game.update_game_state(move)            
-                value = - self.alpha_beta_tt(game.get_state(), -beta, -alpha)
-                game.undo()
+                self.game.update_game_state(move)            
+                value = - self.alpha_beta_tt(-beta, -alpha)
+                self.game.undo()
                 # update best to be alpha
                 alpha = max(alpha, value)
                 if value > best_value:
@@ -111,32 +102,40 @@ class Transposition:
 
             # get exact value now
             if hash_code in self.trans_table:
-                self.trans_table[hash_code].append(Record(state, best_value, best_move))
+                self.trans_table[hash_code].append(Record(current_state, best_value, best_move))
             else:
-                self.trans_table[hash_code] = [Record(state, best_value, best_move)]
+                self.trans_table[hash_code] = [Record(current_state, best_value, best_move)]
 
             return alpha
-                
 
-
-    def run(self):
-        self.random_play()
-        self.game.display_board()
-        self.game.display_board(board='outer')
+    def run(self, display=False):
+        if display:
+            self.game.display_board()
+            self.game.display_board(board='outer')
         
-
         start_time = time.time()
         # get the result for the current player
-        value = self.alpha_beta_tt(self.game.get_state(),float('-inf'), float('inf'))
-        print(f'Time to run Alpha-Beta Search: {time.time() - start_time}')
+        value = self.alpha_beta_tt(-1, 1)
+        time_used = time.time() - start_time
+        print(f'Time to run Alpha-Beta Search with Transposition Table: {time_used}')
 
-        return value
+        res = None
+        if value == 0:
+            res = 0
+        elif value == 1:
+            res =  1 if self.root == self.target else -1
+        else:
+            res = -1 if self.root == self.target else 1
+
+        return res, time_used
     
-    def demonstrate_moves(self) -> None:
+    def print_trace(self) -> None:
+        num_moves = 0
         while not self.game.game_end:
             curr_state = self.game.get_state()
             hash_code = self.hash_function(curr_state)
             record_list = self.trans_table[hash_code]
+            # find the best move from the table
             move = None
             for record in record_list:
                 if self.equal_state(curr_state,record.state):
@@ -147,19 +146,12 @@ class Transposition:
             col = move % 9
             player = 'x' if self.game.current_player == 1 else 'o'
             print(colored(f'Player {player} made a move {(row,col)}.','green'))
+            # update game state
             self.game.update_game_state(move)
             self.game.display_board('inner')
             self.game.display_board('outer')
+            num_moves += 1
 
-    
-def main():
-    player1 = RandomPlayer()
-    player2 = RandomPlayer()
-    agent = Transposition(player1, player2, num_rand=50)
-    result = agent.run()
-    agent.demonstrate_moves()
-    current_player = 'x' if agent.game.current_player == 1 else 'o'
-    print(f'Value of the current player {current_player} is {result}.')
-
-if __name__ == '__main__':
-    main()
+        # undo all the moves
+        for _ in num_moves:
+            self.game.undo()

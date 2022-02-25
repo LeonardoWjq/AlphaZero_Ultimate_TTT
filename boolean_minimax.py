@@ -1,5 +1,4 @@
 from environment import UltimateTTT
-from player import RandomPlayer
 import time
 class BooleanMinimax:
     def __init__(self, game:UltimateTTT , target_player = 1) -> None:
@@ -57,7 +56,6 @@ class BooleanMinimax:
             res = self.boolean_and()
         
         time_used = time.time() - start_time
-
         print(f'Time to run Boolean Minimax: {time_used}')
 
         return res, time_used

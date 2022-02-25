@@ -104,30 +104,38 @@ class Node:
             self.parent.update_proof_number()
 
 class PNS:
-    def __init__(self, game:UltimateTTT, player:int, num_rand = 40) -> None:
+    def __init__(self, game:UltimateTTT, target_player = 1) -> None:
         self.game = game
-        for _ in range(num_rand):
-            if self.game.game_end:
-                break
-            move = self.game.make_move()
-            self.game.update_game_state(move)
-
-        self.root = Node(self.game.get_state(), None, player)
+        self.root_player = target_player
+        self.root = Node(game.get_state(), None, target_player)
     
     '''
     perform the proof number search
     return whether the player to be checked is winning
     '''
     def search(self):
-        start_time = time.time()
         pn, dn = self.root.get_numbers()
         while pn != 0 and dn != 0 :
             mpn = self.root.select_MPN()
             mpn.expand()
             mpn.update_proof_number()
             pn, dn = self.root.get_numbers()
-        print(f'Time to run Proof Number Search: {time.time() - start_time}')
         return pn == 0
+
+    def run(self,display = False):
+        if display:
+            self.game.display_board()
+            self.game.display_board('outer')
+        
+        start = time.time()
+        result = self.search()
+        time_used = time.time() - start
+        print(f'Time to run Proof Number Search: {time_used}')
+
+        return result, time_used
+        
+
+
 
     '''
     print out the trace that leads to the outcome of search
@@ -155,8 +163,8 @@ def main():
     p1 = RandomPlayer()
     p2 = RandomPlayer()
     test_game = UltimateTTT(p1,p2)
-    tree = PNS(test_game,1,50)
-    res = tree.search()
+    tree = PNS(test_game)
+    res,time = tree.run()
     print('Winning.') if res else print('Not Winning.')
     tree.print_trace()
 
