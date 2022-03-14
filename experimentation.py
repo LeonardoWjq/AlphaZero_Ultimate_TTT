@@ -2,7 +2,7 @@ from environment import UltimateTTT
 from negamax import Negamax
 from boolean_minimax import BooleanMinimax
 from alpha_beta import AlphaBeta
-from transposition_table import Transposition
+from alpha_beta_tt import Alpha_Beta_TT
 from pns import PNS
 from player import RandomPlayer,MCTSPlayer
 from policy import RandomPolicy
@@ -34,7 +34,7 @@ def test_runtime(start_rand_num = 52, end_rand_num = 62, interval = 1, num_trial
             boolean_minimax_agent = BooleanMinimax(game)
             negamax_agent = Negamax(game)   
             alpha_beta_agent = AlphaBeta(game)
-            alpha_beta_tt_agent = Transposition(game)
+            alpha_beta_tt_agent = Alpha_Beta_TT(game)
             pns_agent = PNS(game)
 
             _,bool_minimax_time = boolean_minimax_agent.run()

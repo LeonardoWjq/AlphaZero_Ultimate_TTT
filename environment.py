@@ -4,7 +4,7 @@ import player
 
 class UltimateTTT:
 
-    def __init__(self, player1, player2, state = None) -> None:
+    def __init__(self, player1, player2, state = None, keep_history = True) -> None:
         if state is not None:
             self.inner_board = np.copy(state['inner'])
             self.outer_board = np.copy(state['outer'])
@@ -13,7 +13,11 @@ class UltimateTTT:
             self.winner = state['winner']
             self.previous_move = state['previous']
             self.next_valid_move = state['valid_move']
-            self.play_history = state['history']
+            self.keep_history = keep_history
+            if keep_history:
+                self.play_history = state['history']
+            else:
+                self.play_history = []
         else:
             # player x : 1, player o: -1, empty: 0
             self.inner_board = np.zeros((9,9))
@@ -28,6 +32,7 @@ class UltimateTTT:
 
             self.previous_move = None
             self.next_valid_move = list(range(0,81))
+            self.keep_history = keep_history
             self.play_history = []
 
         self.player_x = player1
@@ -55,8 +60,9 @@ class UltimateTTT:
     given the move, update the game state
     '''
     def update_game_state(self,move):
-        # add current state to history
-        self.play_history.append(self.get_state())
+        if self.keep_history:
+            # add current state to history
+            self.play_history.append(self.get_state())
 
         # update previous move
         self.previous_move = move

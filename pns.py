@@ -3,21 +3,31 @@ from player import RandomPlayer
 from termcolor import colored
 import time
 class Node:
-    def __init__(self, state, parent, root_player) -> None:
+    def __init__(self, state, parent, root_player, exact) -> None:
 
         self.state = state
         self.parent = parent
         self.root_player = root_player
         self.is_leaf_node = True
         self.is_or_node = state['current'] == root_player
-        
+        self.exact = exact
         if state['game_end']:
-            if self.root_player == state['winner']:
-                self.pn = 0
-                self.dn = float('inf')
+            if exact:
+                # root player is winner for sure
+                if self.root_player == state['winner']:
+                    self.pn = 0
+                    self.dn = float('inf')
+                else:
+                    self.pn = float('inf')
+                    self.dn = 0
             else:
-                self.pn = float('inf')
-                self.dn = 0
+                # root player is at least draw
+                if self.root_player == state['winner'] or state['winner'] == 2:
+                    self.pn = 0
+                    self.dn = float('inf')
+                else:
+                    self.pn = float('inf')
+                    self.dn = 0
         else:
             self.pn = 1
             self.dn = 1
@@ -39,7 +49,7 @@ class Node:
         legal_moves = self.state['valid_move']
         for move in legal_moves:
             game.update_game_state(move)
-            self.children.append((move, Node(game.get_state(),self,self.root_player)))
+            self.children.append((move, Node(game.get_state(),self,self.root_player, self.exact)))
             game.undo()
         
         self.is_leaf_node = False
@@ -104,10 +114,10 @@ class Node:
             self.parent.update_proof_number()
 
 class PNS:
-    def __init__(self, game:UltimateTTT, target_player = 1) -> None:
+    def __init__(self, game:UltimateTTT, target_player = 1, exact = True) -> None:
         self.game = game
         self.root_player = target_player
-        self.root = Node(game.get_state(), None, target_player)
+        self.root = Node(game.get_state(), None, target_player, exact)
     
     '''
     perform the proof number search
@@ -130,7 +140,6 @@ class PNS:
         start = time.time()
         result = self.search()
         time_used = time.time() - start
-        print(f'Time to run Proof Number Search: {time_used}')
 
         return result, time_used
         
@@ -163,7 +172,8 @@ def main():
     p1 = RandomPlayer()
     p2 = RandomPlayer()
     test_game = UltimateTTT(p1,p2)
-    tree = PNS(test_game)
+    test_game.play()
+    tree = PNS(test_game, exact=False)
     res,time = tree.run()
     print('Winning.') if res else print('Not Winning.')
     tree.print_trace()
