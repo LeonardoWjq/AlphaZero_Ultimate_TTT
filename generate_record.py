@@ -1,3 +1,4 @@
+from os import stat
 import pns_tt
 import numpy as np
 import pickle as pkl
@@ -27,15 +28,16 @@ def generate_entries(num_game = 50, rand_play = 50, start_seed = 0):
 def main():
     player = RandomPlayer()
     start = time.time()
-    for i in range(20,40):
+    for i in range(6000,8000):
         game = UltimateTTT(player, player, keep_history=False)
-        random_play(game, seed = i)
+        random_play(game,num_play=59, seed = i)
         target = 1 if i%2 == 0 else -1
         tt_agent = pns_tt.PNSTT(game, target, exact=True)
         # pns_agent = PNS(game,target, exact= True)
         result_tt,_ = tt_agent.run()
         # result_pn,_ = pns_agent.run()
         # assert result_tt == result_pn
+        print(f'Game {i+1}', end='\t')
         print(pns_tt.hit_num, pns_tt.node_num)
         print('hit rate','{:.2%}'.format(pns_tt.hit_num/pns_tt.node_num))
         tt_agent = pns_tt.PNSTT(game, target, exact=False)
@@ -46,6 +48,7 @@ def main():
         print(pns_tt.hit_num, pns_tt.node_num)
         print('hit rate','{:.2%}'.format(pns_tt.hit_num/pns_tt.node_num))
     print('Time used:', time.time() - start)
+    print(stats(pns_tt.TT))
     with open('tt.pickle','wb') as fp:
         pkl.dump(pns_tt.TT, fp)
 
