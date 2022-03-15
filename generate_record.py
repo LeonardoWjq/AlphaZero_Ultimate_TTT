@@ -1,14 +1,19 @@
-from os import stat
 import pns_tt
 import numpy as np
-import pickle as pkl
 import time
 from environment import UltimateTTT
 from pns import PNS
 from player import RandomPlayer
-from TT_util import stats
+from TT_util import stats, save
+from termcolor import colored
+from tqdm import tqdm
 
-def random_play(game:UltimateTTT, num_play = 50, seed = 1):
+def playout(game:UltimateTTT, num_play = 50, seed = 1):
+    '''
+    game: the Ultimate TTT game object
+    num_play: number of moves to play out
+    seed: random seed
+    '''
     np.random.seed(seed)
     for _ in range(num_play):
         if game.game_end:
@@ -16,41 +21,85 @@ def random_play(game:UltimateTTT, num_play = 50, seed = 1):
         move = game.make_move()
         game.update_game_state(move)
 
-def generate_entries(num_game = 50, rand_play = 50, start_seed = 0):
+
+def generate_entries(start, end, num_move = 65, checkpoint = 1000, verify = False, verbose = 0):
+    '''
+    generate playing experiences and store proved nodes in the table
+    start: start index of iterations
+    end: end index of iterations + 1
+    num_move: number of moves to play out
+    checkpoint: number of moves before saving to the disk
+    verify: verify the result from the PNS with TT is consistent without TT
+    verbose: 0: doesn't print anything 1: print time and hit rate 2: print everything
+    '''
     player = RandomPlayer()
-    for i in range(num_game):
+    start_time = time.time()
+    assert start < end
+    for game_num in tqdm(range(start, end)):
+        # set up game
         game = UltimateTTT(player,player,keep_history=False)
-        random_play(game, rand_play, start_seed + i)
-        target = 1 if i%2 == 0 else -1
-        pnstt_agent = pns_tt.PNSTT(game, target, exact=True)
+        # play the pre-set number of moves
+        playout(game, num_move, game_num)
+        # alternating target player
+        target_player = 1 if game_num %2 == 0 else -1
+
+        '''
+        Non exact turn
+        '''
+        # set up transposition table pns agent
+        pnstt_agt = pns_tt.PNSTT(game, target_player, exact=False)
+        result_pnstt, _ = pnstt_agt.run()
+        if verify:
+            # verify with naive pns
+            pns_agt = PNS(game, target_player, exact=False)
+            result_pns, _ = pns_agt.run()
+            assert result_pnstt == result_pns
+        
+        '''
+        Exact turn
+        '''
+        # set up transposition table pns agent
+        pnstt_agt = pns_tt.PNSTT(game, target_player, exact=True)
+        result_pnstt, _ = pnstt_agt.run()
+        if verify:
+            # verify with naive pns
+            pns_agt = PNS(game, target_player, exact=True)
+            result_pns, _ = pns_agt.run()
+            assert result_pnstt == result_pns
+        
+        # save the table on checkpoints
+        if (game_num + 1) % checkpoint == 0:
+            save(pns_tt.TT)
+            if verbose == 1 or verbose == 2:
+                print(colored(f'Time used so far: {(time.time() - start_time):.2f} s', 'yellow'))
+                print(colored('Current hit rate: {:.2%}'.format(pns_tt.hit_num/pns_tt.node_num), 'yellow'))
+    
+    # save the final outcome
+    save(pns_tt.TT) 
+    if verbose == 1 or verbose == 2:
+        print(colored(f'Total time used: {(time.time() - start_time):.2f} s', 'yellow'))
+        print(colored('Overall hit rate: {:.2%}'.format(pns_tt.hit_num/pns_tt.node_num), 'yellow'))
+        if verbose == 2:
+            print_stats(stats(pns_tt.TT))
+        
+
+
+def print_stats(statistics:dict):
+    '''
+    Print the stats of the transposition table beautifully
+    '''
+    print(colored(f'Total number of records: {statistics["total"]:,}','green'))
+    print(colored(f'Total number of proven wins: {statistics["proven win"]:,}','green'))
+    print(colored(f'Total number of at least draws: {statistics["at least draw"]:,}','green'))
+    print(colored(f'Total number of proven draws: {statistics["proven draw"]:,}','green'))
+    print(colored(f'Total number of at most draws: {statistics["at most draw"]:,}','green'))
+    print(colored(f'Total number of proven losses: {statistics["proven loss"]:,}','green'))
+
+
 
 
 def main():
-    player = RandomPlayer()
-    start = time.time()
-    for i in range(8000,10000):
-        game = UltimateTTT(player, player, keep_history=False)
-        random_play(game,num_play=59, seed = i)
-        target = 1 if i%2 == 0 else -1
-        tt_agent = pns_tt.PNSTT(game, target, exact=True)
-        # pns_agent = PNS(game,target, exact= True)
-        result_tt,_ = tt_agent.run()
-        # result_pn,_ = pns_agent.run()
-        # assert result_tt == result_pn
-        print(f'Game {i+1}', end='\t')
-        print(pns_tt.hit_num, pns_tt.node_num)
-        print('hit rate','{:.2%}'.format(pns_tt.hit_num/pns_tt.node_num))
-        tt_agent = pns_tt.PNSTT(game, target, exact=False)
-        # pns_agent = PNS(game,target, exact= False)
-        result_tt,_ = tt_agent.run()
-        # result_pn,_ = pns_agent.run()
-        # assert result_tt == result_pn
-        print(pns_tt.hit_num, pns_tt.node_num)
-        print('hit rate','{:.2%}'.format(pns_tt.hit_num/pns_tt.node_num))
-    print('Time used:', time.time() - start)
-    print(stats(pns_tt.TT))
-    with open('tt.pickle','wb') as fp:
-        pkl.dump(pns_tt.TT, fp)
+    generate_entries(2000,3000,verbose=2)
 
 
 if __name__ == '__main__':
