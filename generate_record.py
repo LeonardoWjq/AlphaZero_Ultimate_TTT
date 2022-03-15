@@ -28,7 +28,7 @@ def generate_entries(num_game = 50, rand_play = 50, start_seed = 0):
 def main():
     player = RandomPlayer()
     start = time.time()
-    for i in range(6000,8000):
+    for i in range(8000,10000):
         game = UltimateTTT(player, player, keep_history=False)
         random_play(game,num_play=59, seed = i)
         target = 1 if i%2 == 0 else -1
