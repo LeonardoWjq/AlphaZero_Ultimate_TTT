@@ -14,7 +14,8 @@ def playout(game:UltimateTTT, num_play = 50, seed = 1):
     num_play: number of moves to play out
     seed: random seed
     '''
-    np.random.seed(seed)
+    if seed is not None:
+        np.random.seed(seed)
     for _ in range(num_play):
         if game.game_end:
             break
@@ -94,12 +95,38 @@ def print_stats(statistics:dict):
     print(colored(f'Total number of proven draws: {statistics["proven draw"]:,}','green'))
     print(colored(f'Total number of at most draws: {statistics["at most draw"]:,}','green'))
     print(colored(f'Total number of proven losses: {statistics["proven loss"]:,}','green'))
+    print(colored(f'Mean entry length: {statistics["mean entry length"]:.2f}','green'))
+    print(colored(f'Entry length standard deviation: {statistics["entry length std"]:.2f}','green'))
 
 
+def test_running_time(num_game:int = 20, num_playout:int = 60):
+    '''
+    num_game: number of games to play
+    num_playout: number of playout moves before solving
+    '''
+    player = RandomPlayer()
+    total_time = 0
+    for i in tqdm(range(num_game)):
+        game = UltimateTTT(player,player,keep_history=False)
+        playout(game,num_playout,seed=None)
+        target_player = 1 if i %2 == 0 else -1
+
+        pnstt_agt = pns_tt.PNSTT(game,target_player,exact=False)
+        _, time_used = pnstt_agt.run()
+        total_time += time_used
+
+        pnstt_agt = pns_tt.PNSTT(game,target_player,exact=True)
+        _, time_used = pnstt_agt.run()
+        total_time += time_used
+    
+    print(colored(f'Total time used: {total_time:.2f} s','yellow'))
+    print(colored(f'Average running time: {total_time/num_game:.2f} s', 'yellow'))
+    return total_time, total_time/num_game
 
 
 def main():
-    generate_entries(2000,3000,verbose=2)
+    generate_entries(0,50000,num_move=70,checkpoint=5000,verbose=2)
+   
 
 
 if __name__ == '__main__':

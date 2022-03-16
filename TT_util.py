@@ -1,5 +1,5 @@
 import pickle as pkl
-
+import numpy as np
 PROVEN_WIN = 1
 AT_LEAST_DRAW = 0.5
 PROVEN_DRAW = 0
@@ -105,8 +105,10 @@ def save(table):
 def stats(table):
     statistics = {'total':0, 'proven win':0, 'at least draw':0, 'proven draw':0,
                   'at most draw':0, 'proven loss':0}
+    entry_lengths = []
     for entry in table:
         if entry is not None:
+            entry_lengths.append(len(entry))
             for record in entry:
                 outcome = record[1]
                 if outcome == PROVEN_WIN:
@@ -121,7 +123,13 @@ def stats(table):
                     statistics['proven loss'] += 1
 
                 statistics['total'] += 1
+        else:
+            entry_lengths.append(0)
+
+    mean_entry_length = np.mean(entry_lengths)
+    std_entry_length = np.std(entry_lengths)
+    statistics['mean entry length'] = mean_entry_length
+    statistics['entry length std'] = std_entry_length
+    
     
     return statistics
-
-

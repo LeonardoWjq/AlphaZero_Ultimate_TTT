@@ -1,6 +1,13 @@
 import environment as env
 import numpy as np
+import player
+import random
+import pns_tt
+from policy import RandomPolicy
 
+WIN = 1
+DRAW = 0
+LOSS = -1
 # The class for one TreeNode
 class TreeNode:
     '''
@@ -8,17 +15,73 @@ class TreeNode:
     policy: a function that maps game states to action probabilities, used as prior
     simulation_player: the player that is used in simulation step
     '''
-    def __init__(self,game_state: dict, policy, simulation_player):
+    def __init__(self,game_state: dict, depth = 0, policy = None, simulation_player = None):
         self.state = game_state
-        self.policy = policy
-        self.sim_player = simulation_player
+        self.policy = RandomPolicy() if policy is None else policy
+        self.sim_player = player.RandomPlayer() if simulation_player is None else simulation_player
         self.priors = self.policy.get_probs(game_state)
         self.edges = {}
+
+        # create the edge nodes
         for i, move in enumerate(game_state['valid_move']):
             self.edges[move] = {'prior':self.priors[i], 'count':0, 'total_val':0, 'node':None}
         
         self.is_terminal = self.state['game_end']
+        self.proof = None
+        self.best_move = None
+        self.depth = depth
     
+    # update proof based on its children
+    def update_proof(self):
+        # ignore this if self is already (dis)proved
+        if self.proof is not None:
+            return
+
+        # store the moves corresponding to their current outcome
+        loss, tie, unknown = [],[],[]
+        for move, edge in self.edges.items():
+            if edge['node'] is None:
+                unknown.append(move)
+            else:
+                # get the node
+                node:TreeNode = edge['node']
+                # not yet (dis)proved
+                if node.proof is None:
+                    unknown.append(move)
+                # opponent is winning, self is
+                # losing
+                elif node.proof == WIN:
+                    loss.append(move)
+                # tie
+                elif node.proof == DRAW:
+                    tie.append(move)
+                # opponent is losing, self is
+                # winning
+                elif node.proof == LOSS:
+                    # only need one winning move
+                    self.proof = WIN
+                    self.best_move = move
+                    return
+
+        # all child node outcomes have been decided
+        # now
+        if len(unknown) == 0:
+            # The best it can do is tie
+            if len(tie) > 0:
+                self.proof = DRAW
+                self.best_move = random.choice(tie)
+                return
+            else:
+                self.proof = LOSS
+                return
+
+    
+
+
+
+
+
+
     '''
     unroll from the node till the end of the game
     return the game winner
@@ -27,8 +90,24 @@ class TreeNode:
     draw: 2
     '''
     def unroll(self):
+        # at terminal state
         if self.is_terminal:
+            # get the proof if the state itself is terminal
+            if self.state['winner'] == self.state['current']:
+                self.proof = WIN
+            elif self.state['winner'] == 2:
+                self.proof = DRAW
+            else:
+                self.proof = LOSS
+            # return the winner of the state
             return self.state['winner']
+        # state is deep enough to do a pns
+        elif self.depth >= 60:
+            ply = player.RandomPlayer()
+            pnstt_agent = pns_tt.PNSTT()
+
+        
+        
         game = env.UltimateTTT(self.sim_player, self.sim_player,state = self.state)
         game.play()
         final_state = game.get_state()
