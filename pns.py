@@ -1,5 +1,4 @@
 from environment import UltimateTTT
-from player import RandomPlayer
 from termcolor import colored
 import time
 class Node:
@@ -142,7 +141,24 @@ class PNS:
         time_used = time.time() - start
 
         return result, time_used
+    
+    def next_best_move(self):
+        '''
+        return the next 
+        '''
+        root_node = self.root
+        # If it's leaf node then the best move is unknown
+        if root_node.is_leaf_node:
+            return None
+        pn, dn = root_node.get_numbers()
+        if root_node.is_or_node:
+            move, _ = root_node.find_equal_child_pn(root_node.children, pn)
+        else:
+            move, _ = root_node.find_equal_child_dn(root_node.children, dn)
         
+        return move
+
+
 
 
 
@@ -166,17 +182,3 @@ class PNS:
             game = UltimateTTT(None,None,node.state)
             game.display_board()
             game.display_board('outer')
-
-
-def main():
-    p1 = RandomPlayer()
-    p2 = RandomPlayer()
-    test_game = UltimateTTT(p1,p2)
-    test_game.play()
-    tree = PNS(test_game, exact=False)
-    res,time = tree.run()
-    print('Winning.') if res else print('Not Winning.')
-    tree.print_trace()
-
-if __name__ == '__main__':
-    main()

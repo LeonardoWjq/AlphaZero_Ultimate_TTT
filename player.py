@@ -2,8 +2,9 @@ import numpy as np
 import torch
 import random
 import mcts
+import mcts_pns
 from Network import Network
-from policy import NNPolicy
+from policy import NNPolicy, RandomPolicy
 from termcolor import colored
 class Player:
     def move(self, state: dict)->int:
@@ -46,12 +47,10 @@ class HumanPlayer(Player):
 class MCTSPlayer(Player):
     # initialize the attributes
     def __init__(self,prior_policy,sim_player,num_simulation = 200, store_hist = False) -> None:
-        self.pol = prior_policy
-        self.sim = sim_player
+        self.pol = prior_policy if prior_policy else RandomPolicy()
+        self.sim = sim_player if sim_player else RandomPlayer()
         self.mcts_agent = None
         self.num_sim = num_simulation
-        # store the number of step in one game
-        self.step = 0
         # flag for storing the history of play
         self.store_hist = store_hist
         self.history = []
@@ -88,7 +87,6 @@ class MCTSPlayer(Player):
     '''
     def reset(self):
         self.mcts_agent = None
-        self.step = 0
         self.history = []
     
     '''
@@ -157,4 +155,44 @@ class AlphaZeroPlayer(Player):
         
         
         
+class MCTSPNSPlayer(Player):
+    # initialize the attributes
+    def __init__(self,prior_policy,sim_player,num_simulation = 200) -> None:
+        self.pol = prior_policy if prior_policy else RandomPolicy()
+        self.sim = sim_player if sim_player else RandomPlayer()
+        self.mctspns_agt = None
+        self.num_sim = num_simulation
+        self.info = {'simulated':0, 'proven':0,'pre-proven':0}
+                
+    '''
+    select a move given a state
+    '''
+    def move(self,state:dict):
+        # create the MCTS agent if it does not exist
+        if self.mctspns_agt is None:
+            self.mctspns_agt = mcts_pns.MCTSPNS(state, self.pol, self.sim)
+            self.mctspns_agt.run_simumation(self.num_sim)
+            move,_,key = self.mctspns_agt.get_move()
+        else:
+            # do a transplantation
+            self.mctspns_agt.transplant(state)
+            self.mctspns_agt.run_simumation(self.num_sim)
+            move,_, key= self.mctspns_agt.get_move()
+        
+        self.info[key] += 1
+        print(move)
+        return move
+    
+    def get_info(self):
+        return self.info
+
+    '''
+    reset the player for a new game:
+    set agent to None
+    set step to 0
+    clear the history buffer
+    '''
+    def reset(self):
+        self.mctspns_agt = None
+        self.info = {'simulated':0, 'proven':0,'pre-proven':0}
         

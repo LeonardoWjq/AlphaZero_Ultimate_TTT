@@ -8,6 +8,7 @@ from TT_util import stats, save
 from termcolor import colored
 from tqdm import tqdm
 
+
 def playout(game:UltimateTTT, num_play = 50, seed = 1):
     '''
     game: the Ultimate TTT game object
@@ -125,7 +126,7 @@ def test_running_time(num_game:int = 20, num_playout:int = 60):
 
 
 def main():
-    generate_entries(0,50000,num_move=70,checkpoint=5000,verbose=2)
+    generate_entries(0,50000,num_move=61,checkpoint=5000,verbose=2)
    
 
 

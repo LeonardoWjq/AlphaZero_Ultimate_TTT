@@ -1,9 +1,9 @@
 import environment as env
 import numpy as np
-import player
 import random
 import pns_tt
-from policy import RandomPolicy
+import signal
+
 
 WIN = 1
 DRAW = 0
@@ -15,21 +15,24 @@ class TreeNode:
     policy: a function that maps game states to action probabilities, used as prior
     simulation_player: the player that is used in simulation step
     '''
-    def __init__(self,game_state: dict, depth = 0, policy = None, simulation_player = None):
+    def __init__(self,game_state: dict, policy, simulation_player, depth = 0, timelimit = 5):
+        # essential components of a tree
         self.state = game_state
-        self.policy = RandomPolicy() if policy is None else policy
-        self.sim_player = player.RandomPlayer() if simulation_player is None else simulation_player
+        self.policy = policy
+        self.sim_player = simulation_player
         self.priors = self.policy.get_probs(game_state)
         self.edges = {}
-
-        # create the edge nodes
         for i, move in enumerate(game_state['valid_move']):
             self.edges[move] = {'prior':self.priors[i], 'count':0, 'total_val':0, 'node':None}
         
+        # properties
         self.is_terminal = self.state['game_end']
         self.proof = None
         self.best_move = None
         self.depth = depth
+        self.timelimit = timelimit
+
+        signal.signal(signal.SIGALRM, self.handler)
     
     # update proof based on its children
     def update_proof(self):
@@ -41,6 +44,7 @@ class TreeNode:
         loss, tie, unknown = [],[],[]
         for move, edge in self.edges.items():
             if edge['node'] is None:
+                # the node has not been grown yet
                 unknown.append(move)
             else:
                 # get the node
@@ -75,13 +79,6 @@ class TreeNode:
                 self.proof = LOSS
                 return
 
-    
-
-
-
-
-
-
     '''
     unroll from the node till the end of the game
     return the game winner
@@ -90,28 +87,54 @@ class TreeNode:
     draw: 2
     '''
     def unroll(self):
-        # at terminal state
         if self.is_terminal:
-            # get the proof if the state itself is terminal
+            # at terminal state
+            # update the proof if the state itself is terminal
             if self.state['winner'] == self.state['current']:
                 self.proof = WIN
             elif self.state['winner'] == 2:
                 self.proof = DRAW
             else:
                 self.proof = LOSS
+
             # return the winner of the state
             return self.state['winner']
-        # state is deep enough to do a pns
-        elif self.depth >= 60:
-            ply = player.RandomPlayer()
-            pnstt_agent = pns_tt.PNSTT()
+        elif self.proof is not None:
+            # The node is already (dis)proved
+            if self.proof == WIN:
+                return self.state['current']
+            elif self.proof == DRAW:
+                return 2
+            else:
+                return self.state['current']*-1        
+        elif self.depth >= 62:
+            # state is deep enough to do a pns to check for exact win
+            game = env.UltimateTTT(self.sim_player, self.sim_player, self.state, False)
+            try:
+                signal.alarm(self.timelimit)
+                pnstt_agent = pns_tt.PNSTT(game, self.state['current'], exact=True)
+                winning, _ = pnstt_agent.run()
+                signal.alarm(0)
+            except:
+                # time out, playout randomly instead
+                game.play()
+                return game.winner
 
+            # wins exactly store the best move
+            if winning:
+                self.proof = WIN
+                self.best_move = pnstt_agent.next_best_move()
+                return self.state['current']
+            else:
+            # not winning, random playout
+                game.play()
+                return game.winner
         
-        
-        game = env.UltimateTTT(self.sim_player, self.sim_player,state = self.state)
-        game.play()
-        final_state = game.get_state()
-        return final_state['winner']
+        else:
+            # use MC playouts
+            game = env.UltimateTTT(self.sim_player, self.sim_player, self.state, False)
+            game.play()
+            return game.winner
 
     '''
     get a list of actions that have the max values
@@ -121,6 +144,10 @@ class TreeNode:
     return the sampled acton
     '''
     def get_max_action(self,explore_factor):
+        # return the best move if it has one
+        if self.best_move is not None:
+            return self.best_move
+
         # get total visit of this node
         total_visit = 0
         for _, value in self.edges.items():
@@ -181,7 +208,7 @@ class TreeNode:
             new_state = game.get_state()
 
             # create new tree node
-            new_node = TreeNode(new_state, self.policy, self.sim_player)
+            new_node = TreeNode(new_state, self.policy, self.sim_player, self.depth + 1, self.timelimit)
             edge['node'] = new_node
             
             # unroll the new_node once
@@ -197,6 +224,10 @@ class TreeNode:
                 # initialize value using the result
                 # positive if same sign, negative otherwise
                 edge['total_val'] = result*current_player
+            
+            # update the proof once it finishes growing the child node
+            self.update_proof()
+
             # return the simulation result
             return result
         # simulate next node if it exists
@@ -208,8 +239,13 @@ class TreeNode:
                 # increment total_val based on the result
                 edge['total_val'] += result*current_player
             
+            # update the proof
+            self.update_proof()
             return result
-    
+
+    def handler(self, signum, fram):
+        raise TimeoutError("Timed out.")
+
     '''
     input a state
     check if the state is identical to the state of itself
@@ -240,26 +276,26 @@ class TreeNode:
         return True
 
 
-
-
-
-
 # Monte Carlo Tree Search Class
-class MCTS:
+class MCTSPNS:
     # initialze attributes
-    def __init__(self, state:dict, policy, simulation_player, exploration_factor = 0.9) -> None:
-        self.root = TreeNode(state, policy, simulation_player)
+    def __init__(self, state:dict, policy, simulation_player, exploration_factor = 0.5, timelimit = 5) -> None:
+        self.root = TreeNode(state, policy, simulation_player, self.count_step(state['inner']), timelimit)
         self.pol = policy
         self.sim_player = simulation_player
         self.explore_factor = exploration_factor
+        self.timelimit = timelimit
+    
 
     '''
     input number of simulation steps
     run simulations from the root (current) state
     '''
     def run_simumation(self, num = 600):
-        for _ in range(num):
-            self.root.simulate(self.explore_factor)
+        # only run simulation when there is no best move
+        if self.root.best_move is None:
+            for _ in range(num):
+                self.root.simulate(self.explore_factor)
 
     '''
     compute the probability distributions for candidate moves
@@ -268,6 +304,47 @@ class MCTS:
     ATTENTION: this method also changes the root node to the lastest game state resulted after taking the action provided it's not None
     '''
     def get_move(self):
+        step = self.root.depth
+        if self.root.best_move is not None:
+            '''
+            use the already found best move
+            '''
+            move = self.root.best_move
+            probs = np.zeros(81)
+            probs[move] = 1
+            # move the root to the next
+            self.root = self.root.edges[move]['node']
+            # increase the count for already proved node
+            return move, probs, 'pre-proven'
+        elif step >= 45:
+            '''
+            try to solve exactly with PNS
+            '''
+            try:
+                # create game
+                game = env.UltimateTTT(None, None, self.root.state, False)
+                # create agent
+                pnstt_agt = pns_tt.PNSTT(game, self.root.state['current'], False)
+                # perform PNS with the time limit
+                signal.alarm(self.timelimit)
+                res = pnstt_agt.search()
+                signal.alarm(0)
+                # if there is winning move
+                if res:
+                    move = pnstt_agt.next_best_move()   
+                    if move is not None:
+                        probs = np.zeros(81)
+                        probs[move] = 1
+                        # move the root to the next
+                        self.root = self.root.edges[move]['node']
+                        return move, probs, 'proven'
+            except:
+                pass
+
+        # either the search exceeds running time or there is no winning move
+        '''
+        use the visit count to find give the best move
+        '''
         actions = []
         visit_count = []
         # store the actions and the corresponding visit counts
@@ -281,18 +358,16 @@ class MCTS:
         probs = visit_count/np.sum(visit_count)
 
         # sample next move
-        next_move = np.random.choice(actions, p = probs)
+        move = np.random.choice(actions, p = probs)
 
         # the probabilities over the entire output dimension
         prob_vec = np.zeros(81)
         prob_vec[actions] = probs
 
-        # transplant to the next node
-        next_node = self.root.edges[next_move]['node']
-        if next_node is not None:
-            self.root = next_node
-
-        return next_move, prob_vec
+        # move the root to the next
+        self.root = self.root.edges[move]['node']
+        
+        return move, prob_vec, 'simulated'
     
     '''
     update the root node based on the input state:
@@ -300,20 +375,31 @@ class MCTS:
     otherwise, create a new node and make it the root (typically happens when there is a new game)
     '''
     def transplant(self, state:dict):
-        # get the previous move for faster locationing
-        prev_move = state['previous']
-
-        if prev_move is not None:
-            target_node = self.root.edges[prev_move]['node']
-            if target_node is not None and target_node.equal_state(state):
-                self.root = target_node
-                return
+        if self.root is not None:
+            # get the previous move for faster locationing
+            prev_move = state['previous']
+            if prev_move is not None:
+                target_node = self.root.edges[prev_move]['node']
+                if target_node is not None and target_node.equal_state(state):
+                    self.root = target_node
+                    return
         
         # either the previous move is None or the target node is not matching
-        new_node = TreeNode(state,self.pol,self.sim_player)
+        new_node = TreeNode(state,self.pol,self.sim_player, self.count_step(state['inner']))
         self.root = new_node
     
+    def count_step(self, board):
+        '''
+        count the number of pieces into the game
+        '''
+        total = 0
+        for row in board:
+            for piece in row:
+                if piece != 0:
+                    total += 1
         
+        return total
+
         
 
         

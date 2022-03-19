@@ -2,9 +2,7 @@ from TT_util import (PROVEN_WIN, PROVEN_DRAW, PROVEN_LOSS, AT_LEAST_DRAW, AT_MOS
                     hash_func, lookup, store, load, save)
 from pns import Node, PNS
 from termcolor import colored
-from environment import UltimateTTT
-from player import RandomPlayer
-import numpy as np
+from environment import UltimateTTT 
 
 # transposition table
 TT = load()
@@ -189,4 +187,67 @@ class PNSTT(PNS):
                 _, node = node.find_equal_child_dn(node.children,dn)
             trajectory.append((node.state, node.key))
         return trajectory
+    
+    # Override
+    def next_best_move(self):
+        '''
+        return the best move if there is one
+        '''
+        root_node = self.root
+        # If it's leaf node then the best move is unknown
+        if root_node.is_leaf_node:
+            max_score = -10
+            max_move = None
+            incomplete = False
+            for move in self.game.next_valid_move:
+                game = UltimateTTT(None, None, self.game.get_state(),False)
+                game.update_board(move)
+                state = game.get_state()
+
+                # result of the opponent move
+                res = lookup(TT, hash_func(state), state)
+                if res is None:
+                    # Did not find the record from the table
+                    incomplete = True
+                elif -res > max_score:
+                    # the move is better than the current best
+                    max_score = -res
+                    max_move = move
+                
+                # if there is a winning move now then directly return it
+                if max_score == 1:
+                    return max_move
             
+            if incomplete:
+                '''
+                no winning move and not all moves are explored
+                unknown outcome, leave it for later
+                '''
+                return None
+            elif max_move and max_score > -1:
+                '''
+                no winning move and all moves are explored
+                return the move that is at least better than
+                losing
+                '''
+                return max_move
+            else:
+                '''
+                all moves are losing moves
+                leave it to simulations
+                '''
+                return None
+        
+        '''
+        childrens are expanded already
+        directly find the one with the same (dis)prove number
+        '''
+        pn, dn = root_node.get_numbers()
+        if root_node.is_or_node:
+            move, _ = root_node.find_equal_child_pn(root_node.children, pn)
+        else:
+            move, _ = root_node.find_equal_child_dn(root_node.children, dn)
+        
+        return move
+
+

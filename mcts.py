@@ -168,7 +168,7 @@ class TreeNode:
 # Monte Carlo Tree Search Class
 class MCTS:
     # initialze attributes
-    def __init__(self, state:dict, policy, simulation_player, exploration_factor = 0.9) -> None:
+    def __init__(self, state:dict, policy, simulation_player, exploration_factor = 0.5) -> None:
         self.root = TreeNode(state, policy, simulation_player)
         self.pol = policy
         self.sim_player = simulation_player
