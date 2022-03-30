@@ -22,6 +22,9 @@ class NodeTT(Node):
         same_player = state['current']*root_player
 
         outcome = lookup(TT, self.key, state)
+        if outcome:
+            hit_num += 1
+            
         # proven node for the root player
         if self.pn == 0:
             # proven win for current player if it is the same as the root player
@@ -52,8 +55,6 @@ class NodeTT(Node):
 
         # found outcome in table
         if outcome is not None:
-            # increament hit number
-            hit_num += 1
             # if the root player is the same as the current player
             if root_player == state['current']:
                 # seeking exact result
@@ -61,10 +62,15 @@ class NodeTT(Node):
                     if outcome == PROVEN_WIN:
                         self.pn = 0
                         self.dn = float('inf')
-                    # all other conditions don't satisfy an exact win
-                    else:
+                    # If it's proven draw, at most draw, or
+                    # proven loss, then the current player cannot win.
+                    elif outcome != AT_LEAST_DRAW:
                         self.pn = float('inf')
                         self.dn = 0
+                    '''
+                    Cannot say about at least draw, it could either prove or disprove.
+                    Further computation needed.
+                    '''
                 # seeking bounded result
                 else:
                     if outcome == PROVEN_WIN or outcome == AT_LEAST_DRAW or outcome == PROVEN_DRAW:
@@ -85,9 +91,15 @@ class NodeTT(Node):
                     if outcome == PROVEN_LOSS:
                         self.pn = 0
                         self.dn = float('inf')
-                    else:
+                    # If it's proven draw, at least draw or proven win for the
+                    # current player, then the root player cannot win.
+                    elif outcome != AT_MOST_DRAW:
                         self.pn = float('inf')
                         self.dn = 0
+                    '''
+                    Cannot say about at most draw. The current player may draw
+                    or lose.
+                    '''
                 # seeking bounded result
                 else:
                     if outcome == PROVEN_LOSS or outcome == PROVEN_DRAW or outcome == AT_MOST_DRAW:

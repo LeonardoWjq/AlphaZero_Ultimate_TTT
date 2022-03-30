@@ -4,7 +4,7 @@ import time
 from environment import UltimateTTT
 from pns import PNS
 from player import RandomPlayer
-from TT_util import stats, save
+from TT_util import AT_LEAST_DRAW, AT_MOST_DRAW, hash_func, lookup, stats, save
 from termcolor import colored
 from tqdm import tqdm
 
@@ -61,13 +61,15 @@ def generate_entries(start, end, num_move = 65, checkpoint = 1000, verify = Fals
         Exact turn
         '''
         # set up transposition table pns agent
-        pnstt_agt = pns_tt.PNSTT(game, target_player, exact=True)
-        result_pnstt, _ = pnstt_agt.run()
+        pnstt_agt_exact = pns_tt.PNSTT(game, target_player, exact=True)
+        result_pnstt, _ = pnstt_agt_exact.run()
         if verify:
             # verify with naive pns
             pns_agt = PNS(game, target_player, exact=True)
             result_pns, _ = pns_agt.run()
             assert result_pnstt == result_pns
+            
+                
         
         # save the table on checkpoints
         if (game_num + 1) % checkpoint == 0:
@@ -84,6 +86,50 @@ def generate_entries(start, end, num_move = 65, checkpoint = 1000, verify = Fals
         if verbose == 2:
             print_stats(stats(pns_tt.TT))
         
+
+def prepare_records(num:int, record_type:int):
+    '''
+    prepare num of records of specified type
+    if there are fewer records than num,
+    then return all of them
+    '''
+    # load table
+    table = pns_tt.TT
+    records = []
+    count = 0
+    for row in table:
+        if row:
+            for entry in row:
+                if entry[1] == record_type:
+                    records.append(entry[0])
+                    count += 1
+
+                # break out if enough
+                if count == num:
+                    return records
+
+    # return all records collected
+    return records
+
+
+def make_exact(num_records = 5000, record_type = AT_LEAST_DRAW):
+    print_stats(stats(pns_tt.TT))
+    records = prepare_records(num_records, record_type)
+    player = RandomPlayer()
+    for state in tqdm(records):
+        game  = UltimateTTT(player, player, state, False)
+        pnstt_agt = pns_tt.PNSTT(game, state['current'])
+        pnstt_agt.run()
+    
+    # save the record
+    save(pns_tt.TT)
+    print_stats(stats(pns_tt.TT))
+
+
+    
+
+                
+
 
 
 def print_stats(statistics:dict):
@@ -126,7 +172,16 @@ def test_running_time(num_game:int = 20, num_playout:int = 60):
 
 
 def main():
-    generate_entries(0,50000,num_move=61,checkpoint=5000,verbose=2)
+    # for num in range(64, 62, -1):
+    #     print('Rand play:', num)
+    #     # take the first 1000 games as tests
+    #     generate_entries(start=0,end=2000,num_move=num,checkpoint=10000,verify=True,verbose=1)
+    #     # continue generating
+    #     generate_entries(start=2000,end=100000,num_move=num,checkpoint=10000,verify=False,verbose=2)
+    # generate_entries(start=120000,end=140000,num_move=63,checkpoint=10000,verify=False,verbose=2)
+    make_exact(20000)
+    
+        
    
 
 
