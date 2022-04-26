@@ -1,10 +1,12 @@
 import pns_tt
 import numpy as np
 import time
+import matplotlib.pyplot as plt
+import torch
 from environment import UltimateTTT
 from pns import PNS
 from player import RandomPlayer
-from TT_util import AT_LEAST_DRAW, AT_MOST_DRAW, hash_func, lookup, stats, save
+from TT_util import AT_LEAST_DRAW, AT_MOST_DRAW, hash_func, lookup, stats, save, to_list
 from termcolor import colored
 from tqdm import tqdm
 
@@ -112,27 +114,34 @@ def prepare_records(num:int, record_type:int):
     return records
 
 
-def make_exact(num_records = 5000, record_type = AT_LEAST_DRAW):
+def make_exact(num_records = 5000, record_type = AT_LEAST_DRAW, checkpoint=3000):
+    '''
+    re-play num_records number of games of type record_type to make them exact
+    saves the table every checkpoint number of games
+    '''
+    print(colored('Before:','red'))
     print_stats(stats(pns_tt.TT))
+    # extract the wanted records
     records = prepare_records(num_records, record_type)
     player = RandomPlayer()
-    for state in tqdm(records):
+    for index, state in tqdm(enumerate(records)):
+        # replay game from that state
         game  = UltimateTTT(player, player, state, False)
         pnstt_agt = pns_tt.PNSTT(game, state['current'])
         pnstt_agt.run()
+        # saving the table
+        if (index+1)%checkpoint == 0:
+            print(colored('Saving:','yellow'))
+            save(pns_tt.TT)
     
     # save the record
+    print(colored('Saving:','yellow'))
     save(pns_tt.TT)
+    print(colored('After:','red'))
     print_stats(stats(pns_tt.TT))
 
 
-    
-
-                
-
-
-
-def print_stats(statistics:dict):
+def print_stats(statistics:dict, plot=False):
     '''
     Print the stats of the transposition table beautifully
     '''
@@ -144,6 +153,13 @@ def print_stats(statistics:dict):
     print(colored(f'Total number of proven losses: {statistics["proven loss"]:,}','green'))
     print(colored(f'Mean entry length: {statistics["mean entry length"]:.2f}','green'))
     print(colored(f'Entry length standard deviation: {statistics["entry length std"]:.2f}','green'))
+    if plot:
+        plt.title('Distribution over Depth')
+        plt.plot(statistics['depth distribution'])
+        plt.xlabel('Depth')
+        plt.ylabel('Count')
+        plt.grid()
+        plt.show()
 
 
 def test_running_time(num_game:int = 20, num_playout:int = 60):
@@ -170,16 +186,51 @@ def test_running_time(num_game:int = 20, num_playout:int = 60):
     print(colored(f'Average running time: {total_time/num_game:.2f} s', 'yellow'))
     return total_time, total_time/num_game
 
+def save_tensor():
+    table = pns_tt.TT
+    # to a list of records first
+    record_list = to_list(table)
+    inners = []
+    outers = []
+    outcomes = []
+    for state, outcome in record_list:
+        inners.append(state['inner']*state['current'])
+        outers.append(state['outer']*state['current'])
+        outcomes.append(outcome*state['current'])
+
+    # to numpy arrays first
+    inners = np.array(inners)
+    outers = np.array(outers)
+
+    # to tensors
+    inners = torch.tensor(inners, dtype=torch.float64)
+    outers = torch.tensor(outers, dtype=torch.float64)
+    outcomes = torch.tensor(outcomes, dtype=torch.float64)
+    
+    # expand on channel
+    inners = inners[:,None,:]
+    # flatten outer board
+    outers = outers.view(-1,9)
+    # expand on label dimension
+    outcomes = outcomes[:,None]
+    # save dataset
+    torch.save((inners,outers,outcomes),'dataset.pt')
+
+    
+
+
 
 def main():
-    # for num in range(64, 62, -1):
+    save_tensor()
+    # print_stats(stats(pns_tt.TT),True)
+    # for num in range(63, 62, -1):
     #     print('Rand play:', num)
     #     # take the first 1000 games as tests
-    #     generate_entries(start=0,end=2000,num_move=num,checkpoint=10000,verify=True,verbose=1)
+    #     generate_entries(start=50000,end=52000,num_move=num,checkpoint=10000,verify=True,verbose=1)
     #     # continue generating
-    #     generate_entries(start=2000,end=100000,num_move=num,checkpoint=10000,verify=False,verbose=2)
+    #     generate_entries(start=52000,end=70000,num_move=num,checkpoint=10000,verify=False,verbose=2)
     # generate_entries(start=120000,end=140000,num_move=63,checkpoint=10000,verify=False,verbose=2)
-    make_exact(20000)
+    # make_exact(10000)
     
         
    

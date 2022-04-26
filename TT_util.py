@@ -104,13 +104,16 @@ def save(table):
 
 def stats(table):
     statistics = {'total':0, 'proven win':0, 'at least draw':0, 'proven draw':0,
-                  'at most draw':0, 'proven loss':0}
+                  'at most draw':0, 'proven loss':0, 'depth distribution':None}
     entry_lengths = []
+    depth_distribution = np.zeros(82)
     for entry in table:
         if entry is not None:
             entry_lengths.append(len(entry))
-            for record in entry:
-                outcome = record[1]
+            for state, outcome in entry:
+                depth = get_depth(state)
+
+                depth_distribution[depth] += 1
                 if outcome == PROVEN_WIN:
                     statistics['proven win'] += 1
                 elif outcome == AT_LEAST_DRAW:
@@ -130,6 +133,27 @@ def stats(table):
     std_entry_length = np.std(entry_lengths)
     statistics['mean entry length'] = mean_entry_length
     statistics['entry length std'] = std_entry_length
+    statistics['depth distribution'] = depth_distribution
     
     
     return statistics
+
+def get_depth(state:dict):
+    inner_board = state['inner']
+    total = 0
+    for row in inner_board:
+        for entry in row:
+            if entry != 0:
+                total+=1
+    return total
+
+
+def to_list(table):
+    out = []
+    for record in table:
+        if record:
+            for entry in record:
+                out.append(entry)
+    
+    return out
+
