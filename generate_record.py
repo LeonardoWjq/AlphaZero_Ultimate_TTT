@@ -6,7 +6,7 @@ import torch
 from environment import UltimateTTT
 from pns import PNS
 from player import RandomPlayer
-from TT_util import AT_LEAST_DRAW, AT_MOST_DRAW, hash_func, lookup, stats, save, to_list
+from TT_util import AT_LEAST_DRAW, stats, save, to_list
 from termcolor import colored
 from tqdm import tqdm
 
@@ -222,15 +222,14 @@ def save_tensor():
 
 def main():
     # save_tensor()
-    print_stats(stats(pns_tt.TT),True)
-    # for num in range(63, 62, -1):
-    #     print('Rand play:', num)
-    #     # take the first 1000 games as tests
-    #     generate_entries(start=50000,end=52000,num_move=num,checkpoint=10000,verify=True,verbose=1)
-    #     # continue generating
-    #     generate_entries(start=52000,end=70000,num_move=num,checkpoint=10000,verify=False,verbose=2)
+    # print_stats(stats(pns_tt.TT),True)
+    for num in range(63, 62, -1):
+        print('Rand play:', num)
+        # take the first 1000 games as tests
+        generate_entries(start=50000,end=52000,num_move=num,checkpoint=10000,verify=True,verbose=1)
+        # continue generating
+        generate_entries(start=52000,end=70000,num_move=num,checkpoint=10000,verify=False,verbose=2)
     # generate_entries(start=120000,end=140000,num_move=63,checkpoint=10000,verify=False,verbose=2)
-    # make_exact(10000)
     
         
    
