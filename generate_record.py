@@ -3,10 +3,11 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 import torch
+import torch.nn.functional as F
 from environment import UltimateTTT
 from pns import PNS
 from player import RandomPlayer
-from TT_util import AT_LEAST_DRAW, stats, save, to_list
+from TT_util import PROVEN_WIN, AT_LEAST_DRAW, PROVEN_DRAW, AT_MOST_DRAW, PROVEN_LOSS, stats, save, to_list
 from termcolor import colored
 from tqdm import tqdm
 
@@ -186,17 +187,25 @@ def test_running_time(num_game:int = 20, num_playout:int = 60):
     print(colored(f'Average running time: {total_time/num_game:.2f} s', 'yellow'))
     return total_time, total_time/num_game
 
-def save_tensor():
+def make_dataset(is_regression = True):
     table = pns_tt.TT
     # to a list of records first
     record_list = to_list(table)
     inners = []
     outers = []
     outcomes = []
+    categories = (PROVEN_WIN, AT_LEAST_DRAW, PROVEN_DRAW, AT_MOST_DRAW, PROVEN_LOSS)
     for state, outcome in record_list:
-        inners.append(state['inner']*state['current'])
-        outers.append(state['outer']*state['current'])
-        outcomes.append(outcome*state['current'])
+        current_player = state['current']
+        inners.append(state['inner']*current_player)
+        outers.append(state['outer']*current_player)
+        if is_regression:
+            # store the scalar record
+            outcomes.append(outcome*current_player)
+        else:
+            # store the category index
+            outcomes.append(categories.index(outcome*current_player))
+
 
     # to numpy arrays first
     inners = np.array(inners)
@@ -205,30 +214,40 @@ def save_tensor():
     # to tensors
     inners = torch.tensor(inners, dtype=torch.float64)
     outers = torch.tensor(outers, dtype=torch.float64)
-    outcomes = torch.tensor(outcomes, dtype=torch.float64)
+    if is_regression:
+        outcomes = torch.tensor(outcomes, dtype=torch.float64)
+    else:
+        outcomes = torch.tensor(outcomes, dtype=torch.int64)
     
     # expand on channel
     inners = inners[:,None,:]
     # flatten outer board
     outers = outers.view(-1,9)
-    # expand on label dimension
-    outcomes = outcomes[:,None]
-    # save dataset
-    torch.save((inners,outers,outcomes),'dataset.pt')
+
+    if is_regression:
+        # expand on label dimension
+        outcomes = outcomes[:,None]
+        # save dataset
+        torch.save((inners,outers,outcomes),'dataset_regression.pt')
+    else:
+    
+        # save dataset
+        torch.save((inners,outers,outcomes),'dataset_classification.pt')
+
 
     
 
 
 
 def main():
-    # save_tensor()
+    make_dataset(True)
     # print_stats(stats(pns_tt.TT),True)
-    for num in range(63, 62, -1):
-        print('Rand play:', num)
-        # take the first 1000 games as tests
-        generate_entries(start=50000,end=52000,num_move=num,checkpoint=10000,verify=True,verbose=1)
-        # continue generating
-        generate_entries(start=52000,end=70000,num_move=num,checkpoint=10000,verify=False,verbose=2)
+    # for num in range(63, 62, -1):
+    #     print('Rand play:', num)
+    #     # take the first 1000 games as tests
+    #     generate_entries(start=50000,end=52000,num_move=num,checkpoint=10000,verify=True,verbose=1)
+    #     # continue generating
+    #     generate_entries(start=52000,end=70000,num_move=num,checkpoint=10000,verify=False,verbose=2)
     # generate_entries(start=120000,end=140000,num_move=63,checkpoint=10000,verify=False,verbose=2)
     
         
