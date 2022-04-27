@@ -221,8 +221,8 @@ def save_tensor():
 
 
 def main():
-    save_tensor()
-    # print_stats(stats(pns_tt.TT),True)
+    # save_tensor()
+    print_stats(stats(pns_tt.TT),True)
     # for num in range(63, 62, -1):
     #     print('Rand play:', num)
     #     # take the first 1000 games as tests
