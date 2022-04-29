@@ -102,33 +102,54 @@ def train(inners, outers, labels, network, criterion, optimizer, is_regression=T
 
         torch.save(network.state_dict(),'classification_model.pt')
 
-        with open('classfication_accs.pickle','wb') as fp:
+        with open('classification_accs.pickle','wb') as fp:
             pkl.dump(epoch_accs,fp)
 
 
 
-def plot_figure(loss_curve = True):
-    if loss_curve:
-        with open('losses.pickle','rb') as fp:
+def plot_figure(is_regression=True):
+    if is_regression:
+        with open('regression_losses.pickle','rb') as fp:
             loss = pkl.load(fp)
             epochs = np.arange(1,len(loss)+1)
-            plt.xticks(epochs)
+            plt.xticks(np.arange(0,len(loss)+1,2))
             plt.plot(epochs,loss)
+            plt.title('Learning Curve of the Regression Model')
+            plt.xlabel('Epoch')
+            plt.ylabel('Mean Squared Error')
             plt.grid()
-            plt.show()
+            plt.savefig("regression_loss.png")
+    else:
+        with open('classification_accs.pickle','rb') as fp:
+            accs = pkl.load(fp)
+            epochs = np.arange(1,len(accs)+1)
+            plt.xticks(np.arange(0,len(accs)+1,2))
+            plt.plot(epochs,accs)
+            plt.title('Learning Curve of the Classification Model')
+            plt.xlabel('Epoch')
+            plt.ylabel('Accuracy')
+            plt.grid()
+            plt.savefig("classification_acc.png")
             
-def evalualte(test_inners, test_outers, test_labels, criterion, load = True):
+def evalualte(test_inners, test_outers, test_labels, criterion, is_regression=True):
     model = Network()
-    model.load_state_dict(torch.load('model.pt'))
-    model.eval()
-    with torch.no_grad():
-        test_pred = model(test_inners, test_outers)
-        test_loss = criterion(test_pred, test_labels)
-        print('Test loss:', test_loss.item())
-        print(test_pred[10:20].flatten())
-        print(test_labels[10:20].flatten())
-    
-    return test_loss.item()
+    if is_regression:
+        model.load_state_dict(torch.load('regression_model.pt'))
+        model.eval()
+        with torch.no_grad():
+            test_pred = model(test_inners, test_outers)
+            test_loss = criterion(test_pred, test_labels)
+            mse = test_loss.item()
+            print('Test MSE:', mse)
+        return mse
+    else:
+        model.load_state_dict(torch.load('classification_model.pt'))
+        model.eval()
+        with torch.no_grad():
+            pred_prob = model(test_inners, test_outers)
+            pred_labels = torch.argmax(pred_prob, dim=1)
+            acc = torch.sum(pred_labels == test_labels)/len(test_labels)
+        return acc 
         
 
 
@@ -138,13 +159,14 @@ def evalualte(test_inners, test_outers, test_labels, criterion, load = True):
 
 
 def main():
-    train_inners, train_outers, train_labels, test_inners, test_outers, test_labels = load_and_split(ratio=0.01,shuffle=True,seed=1,is_regression=False)
-    net = Network(is_regression=False)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(net.parameters(),lr=1e-3, weight_decay=1e-5)
-    train(train_inners, train_outers, train_labels, net, criterion, optimizer, False, 100, 64)
-    # evalualte(test_inners, test_outers, test_labels, criterion)
-    # plot_figure()
+    regression = False
+    train_inners, train_outers, train_labels, test_inners, test_outers, test_labels = load_and_split(ratio=0.9,shuffle=True,seed=1,is_regression=regression)
+    net = Network(is_regression=regression)
+    criterion = nn.MSELoss() if regression else nn.CrossEntropyLoss()
+    optimizer = optim.Adam(net.parameters(),lr=1e-4, weight_decay=1e-5)
+    # train(train_inners, train_outers, train_labels, net, criterion, optimizer, is_regression=regression, epochs=40, batch_size=128)
+    evalualte(test_inners, test_outers, test_labels, criterion, False)
+    # plot_figure(is_regression=regression)
 
 if __name__ == '__main__':
     main()

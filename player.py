@@ -3,7 +3,7 @@ import torch
 import random
 import mcts
 import mcts_pns
-from Network import Network
+from neural_net import Network
 from policy import NNPolicy, RandomPolicy
 from termcolor import colored
 class Player:
