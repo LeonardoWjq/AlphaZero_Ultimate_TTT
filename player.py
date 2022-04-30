@@ -6,6 +6,7 @@ import mcts_pns
 from neural_net import Network
 from policy import NNPolicy, RandomPolicy
 from termcolor import colored
+from neural_mcts import NeuralMCTS
 class Player:
     def move(self, state: dict)->int:
         pass
@@ -195,4 +196,45 @@ class MCTSPNSPlayer(Player):
     def reset(self):
         self.mctspns_agt = None
         self.info = {'simulated':0, 'proven':0,'pre-proven':0}
+
+
+class NeuralMCTSPlayer(Player):
+    # initialize the attributes
+    def __init__(self,sim_player,num_simulation = 200,is_regression=True) -> None:
+        self.sim = sim_player if sim_player else RandomPlayer()
+        self.nmcts_agt = None
+        self.num_sim = num_simulation
+        self.regression = is_regression
+        self.info = {'simulated':0, 'inferred':0}
+                
+    '''
+    select a move given a state
+    '''
+    def move(self,state:dict):
+        # create the MCTS agent if it does not exist
+        if self.nmcts_agt is None:
+            self.nmcts_agt = NeuralMCTS(state,self.sim,is_regression=self.regression)
+            self.nmcts_agt.run_simumation(self.num_sim)
+            move,key = self.nmcts_agt.get_move()
+        else:
+            # do a transplantation
+            self.nmcts_agt.transplant(state)
+            self.nmcts_agt.run_simumation(self.num_sim)
+            move,key= self.nmcts_agt.get_move()
+        
+        self.info[key] += 1
+        return move
+    
+    def get_info(self):
+        return self.info
+
+    '''
+    reset the player for a new game:
+    set agent to None
+    set step to 0
+    clear the history buffer
+    '''
+    def reset(self):
+        self.mctspns_agt = None
+        self.info = {'simulated':0, 'inferred':0}
         

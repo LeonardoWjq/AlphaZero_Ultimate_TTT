@@ -11,7 +11,7 @@ import numpy as np
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def load_and_split(ratio = 0.7, shuffle = False, seed = 0, is_regression = True):
+def load_and_split(train_ratio=0.8, val_ratio = 0.1, shuffle = False, seed = 0, is_regression = True):
 
     inners, outers, labels = torch.load('dataset_regression.pt') if is_regression else torch.load('dataset_classification.pt')
 
@@ -26,25 +26,41 @@ def load_and_split(ratio = 0.7, shuffle = False, seed = 0, is_regression = True)
         labels = labels[indices]
 
     # point of split train/test
-    split = int(len(inners)*ratio)
-    train_inners, test_inners = inners[:split], inners[split:]
-    train_outers, test_outers = outers[:split], outers[split:]
-    train_labels, test_labels = labels[:split], labels[split:]
+    train_size = int(len(inners)*train_ratio)
+    val_size = int(len(inners)*val_ratio)
+
+    train_inners = inners[:train_size]
+    train_outers = outers[:train_size]
+    train_labels = labels[:train_size]
+
+    val_inners = inners[train_size:train_size+val_size]
+    val_outers = outers[train_size:train_size+val_size]
+    val_labels = labels[train_size:train_size+val_size]
+
+    test_inners = inners[train_size+val_size:]
+    test_outers = outers[train_size+val_size:]
+    test_labels = labels[train_size+val_size:]
     
-    return train_inners, train_outers, train_labels, test_inners, test_outers, test_labels
+    return train_inners, train_outers, train_labels, val_inners, val_outers, val_labels, test_inners, test_outers, test_labels
 
 
 
 
-def train(inners, outers, labels, network, criterion, optimizer, is_regression=True, epochs = 50, batch_size=32):
+def train(inners_train,outers_train,labels_train,inners_val,outers_val,labels_val,network,criterion,optimizer,is_regression=True,epochs = 50,batch_size=32):
     network.to(device)
-    inner_batches = torch.split(inners,batch_size)
-    outer_batches = torch.split(outers,batch_size)
-    labels_batches = torch.split(labels,batch_size)
+
+    inner_batches = torch.split(inners_train,batch_size)
+    outer_batches = torch.split(outers_train,batch_size)
+    labels_batches = torch.split(labels_train,batch_size)
+
+    inners_val = inners_val.to(device)
+    outers_val = outers_val.to(device)
+    labels_val = labels_val.to(device)
 
     # regresion
     if is_regression:
-        epoch_losses = []
+        train_losses = []
+        val_losses = []
         for epoch in tqdm(range(epochs)):
             total_loss = 0
             for inner, outer, label in zip(inner_batches, outer_batches, labels_batches):
@@ -53,24 +69,35 @@ def train(inners, outers, labels, network, criterion, optimizer, is_regression=T
                 label = label.to(device)
                 prediction = network(inner, outer)
                 loss = criterion(prediction, label)
+
                 # total batch_loss
                 total_loss += loss.item()*len(inner)
+
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
             
-            mean_loss = total_loss/len(inners)
-            print(f'Epoch {epoch+1} MSE:', mean_loss)
-            epoch_losses.append(mean_loss)
+           
+            # get validation loss
+            val_pred = network(inners_val, outers_val)
+            val_mse = criterion(val_pred, labels_val).item()
+
+            train_mse = total_loss/len(inners_train)
+
+            print(f'epoch {epoch+1} training MSE:', train_mse)
+            print(f'epoch {epoch+1} validation MSE:', val_mse)
+
+            train_losses.append(train_mse)
+            val_losses.append(val_mse)
 
         torch.save(network.state_dict(),'regression_model.pt')
 
         with open('regression_losses.pickle','wb') as fp:
-            pkl.dump(epoch_losses,fp)
-
+            pkl.dump((train_losses, val_losses),fp)
     # classification
     else:
-        epoch_accs = []
+        train_accs = []
+        val_accs = []
         for epoch in tqdm(range(epochs)):
             total_correct = 0
             for inner, outer, label in zip(inner_batches, outer_batches, labels_batches):
@@ -96,43 +123,56 @@ def train(inners, outers, labels, network, criterion, optimizer, is_regression=T
                 optimizer.step()
                 optimizer.zero_grad()
             
-            epoch_accuracy = total_correct/len(inners)
-            print(f'Epoch {epoch+1} Accuracy: {epoch_accuracy:.2%}')
-            epoch_accs.append(epoch_accuracy)
+            train_accuracy = total_correct/len(inners_train)
+
+            val_probs = network(inners_val, outers_val)
+            val_pred = torch.argmax(val_probs, dim=1)
+            val_accuracy = torch.sum(val_pred == labels_val).item()/len(labels_val)
+
+            print(f'epoch {epoch+1} training accuracy: {train_accuracy:.2%}')
+            print(f'epoch {epoch+1} validation accuracy: {val_accuracy:.2%}')
+
+            train_accs.append(train_accuracy)
+            val_accs.append(val_accuracy)
+            
 
         torch.save(network.state_dict(),'classification_model.pt')
 
         with open('classification_accs.pickle','wb') as fp:
-            pkl.dump(epoch_accs,fp)
+            pkl.dump((train_accs, val_accs),fp)
 
 
 
 def plot_figure(is_regression=True):
     if is_regression:
         with open('regression_losses.pickle','rb') as fp:
-            loss = pkl.load(fp)
-            epochs = np.arange(1,len(loss)+1)
-            plt.xticks(np.arange(0,len(loss)+1,2))
-            plt.plot(epochs,loss)
+            train_loss, val_loss = pkl.load(fp)
+            epochs = np.arange(1,len(train_loss)+1)
+            plt.xticks(np.arange(0,len(train_loss)+1,2))
+            plt.plot(epochs,train_loss,label='training')
+            plt.plot(epochs,val_loss,label='validation')
             plt.title('Learning Curve of the Regression Model')
             plt.xlabel('Epoch')
             plt.ylabel('Mean Squared Error')
+            plt.legend()
             plt.grid()
             plt.savefig("regression_loss.png")
     else:
         with open('classification_accs.pickle','rb') as fp:
-            accs = pkl.load(fp)
-            epochs = np.arange(1,len(accs)+1)
-            plt.xticks(np.arange(0,len(accs)+1,2))
-            plt.plot(epochs,accs)
+            train_accs, val_accs = pkl.load(fp)
+            epochs = np.arange(1,len(train_accs)+1)
+            plt.xticks(np.arange(0,len(train_accs)+1,2))
+            plt.plot(epochs,train_accs,label='training')
+            plt.plot(epochs,val_accs,label='validation')
             plt.title('Learning Curve of the Classification Model')
             plt.xlabel('Epoch')
             plt.ylabel('Accuracy')
+            plt.legend()
             plt.grid()
             plt.savefig("classification_acc.png")
             
 def evalualte(test_inners, test_outers, test_labels, criterion, is_regression=True):
-    model = Network()
+    model = Network(is_regression)
     if is_regression:
         model.load_state_dict(torch.load('regression_model.pt'))
         model.eval()
@@ -148,7 +188,8 @@ def evalualte(test_inners, test_outers, test_labels, criterion, is_regression=Tr
         with torch.no_grad():
             pred_prob = model(test_inners, test_outers)
             pred_labels = torch.argmax(pred_prob, dim=1)
-            acc = torch.sum(pred_labels == test_labels)/len(test_labels)
+            acc = torch.sum(pred_labels == test_labels).item()/len(test_labels)
+            print(f"Test Accuracy: {acc:.2%}")
         return acc 
         
 
@@ -160,13 +201,14 @@ def evalualte(test_inners, test_outers, test_labels, criterion, is_regression=Tr
 
 def main():
     regression = False
-    train_inners, train_outers, train_labels, test_inners, test_outers, test_labels = load_and_split(ratio=0.9,shuffle=True,seed=1,is_regression=regression)
+    train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,test_inners,test_outers,test_labels = load_and_split(train_ratio=0.7,val_ratio=0.01, shuffle=True,seed=0,is_regression=regression)
     net = Network(is_regression=regression)
     criterion = nn.MSELoss() if regression else nn.CrossEntropyLoss()
-    optimizer = optim.Adam(net.parameters(),lr=1e-4, weight_decay=1e-5)
-    # train(train_inners, train_outers, train_labels, net, criterion, optimizer, is_regression=regression, epochs=40, batch_size=128)
-    evalualte(test_inners, test_outers, test_labels, criterion, False)
+    # optimizer = optim.Adam(net.parameters(),lr=1e-4, weight_decay=1e-5)
+    # train(train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,net,criterion,optimizer,is_regression=regression,epochs=30,batch_size=64)
+    evalualte(test_inners, test_outers, test_labels, criterion, is_regression=regression)
     # plot_figure(is_regression=regression)
+    
 
 if __name__ == '__main__':
     main()

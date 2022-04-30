@@ -187,6 +187,7 @@ def test_running_time(num_game:int = 20, num_playout:int = 60):
     print(colored(f'Average running time: {total_time/num_game:.2f} s', 'yellow'))
     return total_time, total_time/num_game
 
+
 def make_dataset(is_regression = True):
     table = pns_tt.TT
     # to a list of records first
@@ -195,10 +196,27 @@ def make_dataset(is_regression = True):
     outers = []
     outcomes = []
     categories = (PROVEN_WIN, AT_LEAST_DRAW, PROVEN_DRAW, AT_MOST_DRAW, PROVEN_LOSS)
+
+    def legal_move_repr(legal_moves):
+        feature_map = np.zeros((9,9))
+        for move in legal_moves:
+            row = move//9
+            col = move%9
+            feature_map[row,col] = 1
+        return feature_map
+
     for state, outcome in record_list:
         current_player = state['current']
-        inners.append(state['inner']*current_player)
-        outers.append(state['outer']*current_player)
+        inner_board = state['inner']*current_player
+        outer_board = state['outer']*current_player
+        valid_moves = state['valid_move']
+
+        move_feature = legal_move_repr(valid_moves)
+        inner_board = np.concatenate((inner_board[None], move_feature[None]))
+
+        inners.append(inner_board)
+        outers.append(outer_board)
+
         if is_regression:
             # store the scalar record
             outcomes.append(outcome*current_player)
@@ -220,7 +238,7 @@ def make_dataset(is_regression = True):
         outcomes = torch.tensor(outcomes, dtype=torch.int64)
     
     # expand on channel
-    inners = inners[:,None,:]
+    # inners = inners[:,None,:]
     # flatten outer board
     outers = outers.view(-1,9)
 
@@ -240,7 +258,7 @@ def make_dataset(is_regression = True):
 
 
 def main():
-    make_dataset(True)
+    make_dataset(False)
     # print_stats(stats(pns_tt.TT),True)
     # for num in range(63, 62, -1):
     #     print('Rand play:', num)

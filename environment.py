@@ -1,6 +1,5 @@
 import numpy as np
 from termcolor import colored
-import player
 
 class UltimateTTT:
 
@@ -410,28 +409,28 @@ class UltimateTTT:
         else:
             raise ValueError('Board name not recognized.')
     
-def main():
-    p1 = player.HumanPlayer()
-    p2 = player.RandomPlayer()
-    game = UltimateTTT(p1, p2)
-    game.update_game_state(10)
-    game.display_board()
-    game.display_board('outer')
-    game.undo()
+# def main():
+#     p1 = player.HumanPlayer()
+#     p2 = player.RandomPlayer()
+#     game = UltimateTTT(p1, p2)
+#     game.update_game_state(10)
+#     game.display_board()
+#     game.display_board('outer')
+#     game.undo()
 
-    game.update_game_state(44)
-    game.display_board()
-    game.display_board('outer')
+#     game.update_game_state(44)
+#     game.display_board()
+#     game.display_board('outer')
 
-    game.update_game_state(43)
-    game.display_board()
-    game.display_board('outer')
+#     game.update_game_state(43)
+#     game.display_board()
+#     game.display_board('outer')
 
-    game.undo()
-    game.display_board()
-    game.display_board('outer')
+#     game.undo()
+#     game.display_board()
+#     game.display_board('outer')
 
     
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

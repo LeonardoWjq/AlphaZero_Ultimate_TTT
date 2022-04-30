@@ -10,20 +10,20 @@ class Network(nn.Module):
         self.is_regression = is_regression
 
         # Layer Definitions
-        self.conv1 = nn.Conv2d(in_channels=1, 
-                               out_channels=32, 
+        self.conv1 = nn.Conv2d(in_channels=2, 
+                               out_channels=16, 
                                kernel_size=3, 
                                stride=1)
 
-        self.conv2 = nn.Conv2d(in_channels=32, 
-                               out_channels=32, 
+        self.conv2 = nn.Conv2d(in_channels=16, 
+                               out_channels=16, 
                                kernel_size=3, 
                                stride=1)
         
         
 
-        self.fc_1 = nn.Linear(32*5*5, 512)
-        self.fc_2 = nn.Linear(512,256)
+        self.fc_1 = nn.Linear(16*5*5, 128)
+        self.fc_2 = nn.Linear(128,256)
         self.fc_3 = nn.Linear(256, 119)
         self.fc_4 = nn.Linear(128, 64)
         self.scalar = nn.Linear(64, 1)
@@ -41,7 +41,7 @@ class Network(nn.Module):
         x = F.relu(x)
 
 
-        x = x.view(-1, 32*5*5) # 800
+        x = x.view(-1, 16*5*5) # 800
         x = self.fc_1(x) # 256
         x = F.relu(x)
 
