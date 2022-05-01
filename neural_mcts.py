@@ -316,14 +316,15 @@ class NeuralMCTS:
     otherwise, create a new node and make it the root (typically happens when there is a new game)
     '''
     def transplant(self, state:dict):
-        # get the previous move for faster locationing
-        prev_move = state['previous']
 
-        if prev_move is not None:
-            target_node = self.root.edges[prev_move]['node']
-            if target_node is not None and target_node.equal_state(state):
-                self.root = target_node
-                return
+        if self.root.get_depth()<self.threshold:
+            # get the previous move for faster locationing
+            prev_move = state['previous']
+            if prev_move is not None:
+                target_node = self.root.edges[prev_move]['node']
+                if target_node is not None and target_node.equal_state(state):
+                    self.root = target_node
+                    return
         
         # either the previous move is None or the target node is not matching
         new_node = NeuralTreeNode(state,self.sim_player,self.count_step(state['inner']))

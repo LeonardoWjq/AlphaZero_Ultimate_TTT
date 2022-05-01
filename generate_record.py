@@ -219,10 +219,10 @@ def make_dataset(is_regression = True):
 
         if is_regression:
             # store the scalar record
-            outcomes.append(outcome*current_player)
+            outcomes.append(outcome)
         else:
             # store the category index
-            outcomes.append(categories.index(outcome*current_player))
+            outcomes.append(categories.index(outcome))
 
 
     # to numpy arrays first
