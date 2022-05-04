@@ -200,11 +200,11 @@ def evalualte(test_inners, test_outers, test_labels, criterion, is_regression=Tr
 
 
 def main():
-    regression = True
+    regression = False
     train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,test_inners,test_outers,test_labels = load_and_split(train_ratio=0.9,val_ratio=0.01, shuffle=True,seed=1,is_regression=regression)
     net = Network(is_regression=regression)
     criterion = nn.MSELoss() if regression else nn.CrossEntropyLoss()
-    optimizer = optim.Adam(net.parameters(),lr=1e-4, weight_decay=1e-5)
+    optimizer = optim.Adam(net.parameters(),lr=2e-4, weight_decay=1e-5)
     train(train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,net,criterion,optimizer,is_regression=regression,epochs=30,batch_size=64)
     evalualte(test_inners, test_outers, test_labels, criterion, is_regression=regression)
     plot_figure(is_regression=regression)

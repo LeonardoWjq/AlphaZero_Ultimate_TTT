@@ -47,14 +47,14 @@ class HumanPlayer(Player):
 
 class MCTSPlayer(Player):
     # initialize the attributes
-    def __init__(self,prior_policy,sim_player,num_simulation = 200, store_hist = False) -> None:
-        self.pol = prior_policy if prior_policy else RandomPolicy()
+    def __init__(self, sim_player,num_simulation = 200, explore = 0.4, store_hist = False) -> None:
         self.sim = sim_player if sim_player else RandomPlayer()
         self.mcts_agent = None
         self.num_sim = num_simulation
         # flag for storing the history of play
         self.store_hist = store_hist
         self.history = []
+        self.C = explore
 
         
     '''
@@ -64,19 +64,19 @@ class MCTSPlayer(Player):
     def move(self,state:dict):
         # create the MCTS agent if it does not exist
         if self.mcts_agent is None:
-            self.mcts_agent = mcts.MCTS(state,self.pol,self.sim)
+            self.mcts_agent = mcts.MCTS(state,self.sim,exploration_factor=self.C)
             self.mcts_agent.run_simumation(self.num_sim)
-            move,probs = self.mcts_agent.get_move()
+            move = self.mcts_agent.get_move()
         else:
             # do a transplantation
             self.mcts_agent.transplant(state)
             self.mcts_agent.run_simumation(self.num_sim)
-            move,probs = self.mcts_agent.get_move()
+            move = self.mcts_agent.get_move()
         
         # store history
         if self.store_hist:
             relative_board = state['inner']*state['current']
-            self.history.append((relative_board, probs))
+            self.history.append((relative_board))
         
         return move
 
@@ -200,12 +200,13 @@ class MCTSPNSPlayer(Player):
 
 class NeuralMCTSPlayer(Player):
     # initialize the attributes
-    def __init__(self,sim_player,num_simulation=200,threshold=50,is_regression=True) -> None:
+    def __init__(self,sim_player,num_simulation=200,threshold=50,explore = 0.4,is_regression=True) -> None:
         self.sim = sim_player if sim_player else RandomPlayer()
         self.nmcts_agt = None
         self.num_sim = num_simulation
         self.regression = is_regression
         self.threshold = threshold
+        self.C = explore
         self.info = {'simulated':0, 'inferred':0}
                 
     '''
@@ -214,7 +215,7 @@ class NeuralMCTSPlayer(Player):
     def move(self,state:dict):
         # create the MCTS agent if it does not exist
         if self.nmcts_agt is None:
-            self.nmcts_agt = NeuralMCTS(state,self.sim,threshold=self.threshold,is_regression=self.regression)
+            self.nmcts_agt = NeuralMCTS(state,self.sim,exploration_factor=self.C,threshold=self.threshold,is_regression=self.regression)
             self.nmcts_agt.run_simumation(self.num_sim)
             move,key = self.nmcts_agt.get_move()
         else:

@@ -332,8 +332,9 @@ class NeuralMCTS:
     
     def count_step(self, board:np.array)->int:
         '''
-        count the number of pieces into the game
+        count depth of the game
         '''
+
         total = 0
         for row in board:
             for piece in row:

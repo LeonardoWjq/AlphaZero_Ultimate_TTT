@@ -5,17 +5,15 @@ import numpy as np
 class TreeNode:
     '''
     game_state: the current game state the tree node stores
-    policy: a function that maps game states to action probabilities, used as prior
     simulation_player: the player that is used in simulation step
     '''
-    def __init__(self,game_state: dict, policy, simulation_player):
+    def __init__(self,game_state: dict,simulation_player):
         self.state = game_state
-        self.policy = policy
         self.sim_player = simulation_player
-        self.priors = self.policy.get_probs(game_state)
+
         self.edges = {}
-        for i, move in enumerate(game_state['valid_move']):
-            self.edges[move] = {'prior':self.priors[i], 'count':0, 'total_val':0, 'node':None}
+        for move in game_state['valid_move']:
+            self.edges[move] = {'count':0, 'total_val':0, 'node':None}
         
         self.is_terminal = self.state['game_end']
     
@@ -62,13 +60,15 @@ class TreeNode:
             # if the edge if visited before
             else:
                 q = record['total_val']/record['count']
-                u = explore_factor*record['prior']*np.sqrt(total_visit)/(1+record['count'])
+                u = np.sqrt(np.log(total_visit)/record['count'])
+                val = q + explore_factor*u
+
                 # if the value is the current max
-                if q+u > max_val:
-                    max_val = q+u
+                if val > max_val:
+                    max_val = val
                     max_actions = [action]
                 # if it is equal the current max
-                elif q+u == max_val:
+                elif val == max_val:
                     max_actions.append(action)
         
         # choose action to simulate
@@ -102,7 +102,7 @@ class TreeNode:
             new_state = game.get_state()
 
             # create new tree node
-            new_node = TreeNode(new_state, self.policy, self.sim_player)
+            new_node = TreeNode(new_state, self.sim_player)
             edge['node'] = new_node
             
             # unroll the new_node once
@@ -168,9 +168,8 @@ class TreeNode:
 # Monte Carlo Tree Search Class
 class MCTS:
     # initialze attributes
-    def __init__(self, state:dict, policy, simulation_player, exploration_factor = 0.5) -> None:
-        self.root = TreeNode(state, policy, simulation_player)
-        self.pol = policy
+    def __init__(self, state:dict, simulation_player, exploration_factor = 0.5) -> None:
+        self.root = TreeNode(state, simulation_player)
         self.sim_player = simulation_player
         self.explore_factor = exploration_factor
 
@@ -185,7 +184,6 @@ class MCTS:
     '''
     compute the probability distributions for candidate moves
     sample an action from the distribution
-    return both the action and the probability disitribution of moves over the entire output space (81 slots)
     ATTENTION: this method also changes the root node to the lastest game state resulted after taking the action provided it's not None
     '''
     def get_move(self):
@@ -204,16 +202,13 @@ class MCTS:
         # sample next move
         next_move = np.random.choice(actions, p = probs)
 
-        # the probabilities over the entire output dimension
-        prob_vec = np.zeros(81)
-        prob_vec[actions] = probs
-
         # transplant to the next node
         next_node = self.root.edges[next_move]['node']
+
         if next_node is not None:
             self.root = next_node
 
-        return next_move, prob_vec
+        return next_move
     
     '''
     update the root node based on the input state:
@@ -231,7 +226,7 @@ class MCTS:
                 return
         
         # either the previous move is None or the target node is not matching
-        new_node = TreeNode(state,self.pol,self.sim_player)
+        new_node = TreeNode(state, self.sim_player)
         self.root = new_node
     
         

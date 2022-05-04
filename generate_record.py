@@ -160,7 +160,8 @@ def print_stats(statistics:dict, plot=False):
         plt.xlabel('Depth')
         plt.ylabel('Count')
         plt.grid()
-        plt.show()
+        # plt.show()
+        plt.savefig('distribution.png')
 
 
 def test_running_time(num_game:int = 20, num_playout:int = 60):
@@ -258,14 +259,14 @@ def make_dataset(is_regression = True):
 
 
 def main():
-    make_dataset(False)
+    make_dataset(True)
     # print_stats(stats(pns_tt.TT),True)
-    # for num in range(63, 62, -1):
+    # for num in range(62, 61, -1):
     #     print('Rand play:', num)
-    #     # take the first 1000 games as tests
-    #     generate_entries(start=50000,end=52000,num_move=num,checkpoint=10000,verify=True,verbose=1)
+    #     # take the first 2000 games as tests
+    #     generate_entries(start=0,end=2000,num_move=num,checkpoint=10000,verify=True,verbose=1)
     #     # continue generating
-    #     generate_entries(start=52000,end=70000,num_move=num,checkpoint=10000,verify=False,verbose=2)
+    #     generate_entries(start=2000,end=20000,num_move=num,checkpoint=10000,verify=False,verbose=2)
     # generate_entries(start=120000,end=140000,num_move=63,checkpoint=10000,verify=False,verbose=2)
     
         

@@ -23,8 +23,8 @@ class Network(nn.Module):
         
 
         self.fc_1 = nn.Linear(16*5*5, 128)
-        self.fc_2 = nn.Linear(128,256)
-        self.fc_3 = nn.Linear(256, 119)
+        self.fc_2 = nn.Linear(128,128)
+        self.fc_3 = nn.Linear(128, 119)
         self.fc_4 = nn.Linear(128, 64)
         self.scalar = nn.Linear(64, 1)
         self.categorical = nn.Linear(64, 5)
