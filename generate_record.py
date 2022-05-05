@@ -3,11 +3,11 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 import torch
-import torch.nn.functional as F
+import random
 from environment import UltimateTTT
 from pns import PNS
 from player import RandomPlayer
-from TT_util import PROVEN_WIN, AT_LEAST_DRAW, PROVEN_DRAW, AT_MOST_DRAW, PROVEN_LOSS, stats, save, to_list
+from TT_util import PROVEN_WIN, AT_LEAST_DRAW, PROVEN_DRAW, AT_MOST_DRAW, PROVEN_LOSS, stats, save, to_list, get_depth
 from termcolor import colored
 from tqdm import tqdm
 
@@ -192,66 +192,117 @@ def test_running_time(num_game:int = 20, num_playout:int = 60):
 def make_dataset(is_regression = True):
     table = pns_tt.TT
     # to a list of records first
-    record_list = to_list(table)
-    inners = []
-    outers = []
-    outcomes = []
-    categories = (PROVEN_WIN, AT_LEAST_DRAW, PROVEN_DRAW, AT_MOST_DRAW, PROVEN_LOSS)
+    record_list = to_list(table,proof_only=True)
+    random.shuffle(record_list)
 
-    def legal_move_repr(legal_moves):
-        feature_map = np.zeros((9,9))
-        for move in legal_moves:
-            row = move//9
-            col = move%9
-            feature_map[row,col] = 1
-        return feature_map
+    test_size = 3000
 
-    for state, outcome in record_list:
-        current_player = state['current']
-        inner_board = state['inner']*current_player
-        outer_board = state['outer']*current_player
-        valid_moves = state['valid_move']
+    group_1 = []
+    group_2 = []
+    group_3 = []
+    other = []
 
-        move_feature = legal_move_repr(valid_moves)
-        inner_board = np.concatenate((inner_board[None], move_feature[None]))
-
-        inners.append(inner_board)
-        outers.append(outer_board)
-
-        if is_regression:
-            # store the scalar record
-            outcomes.append(outcome)
+    for record in record_list:
+        depth = get_depth(record[0])
+        if depth >= 40:
+            #[40,50]
+            if depth <= 50:
+                group_1.append(record)
+            #[50,60]
+            elif depth <= 60:
+                group_2.append(record)
+            #[60,70]
+            elif depth <= 70:
+                group_3.append(record)
+            # >70
+            else:
+                other.append(record)
+        # < 40
         else:
-            # store the category index
-            outcomes.append(categories.index(outcome))
+            other.append(record)
+        
 
 
-    # to numpy arrays first
-    inners = np.array(inners)
-    outers = np.array(outers)
 
-    # to tensors
-    inners = torch.tensor(inners, dtype=torch.float64)
-    outers = torch.tensor(outers, dtype=torch.float64)
-    if is_regression:
-        outcomes = torch.tensor(outcomes, dtype=torch.float64)
-    else:
-        outcomes = torch.tensor(outcomes, dtype=torch.int64)
+
+
+
+
+
+    # inners = []
+    # outers = []
+    # outcomes = []
+    # categories = (PROVEN_WIN,PROVEN_DRAW,PROVEN_LOSS)
     
-    # expand on channel
-    # inners = inners[:,None,:]
-    # flatten outer board
-    outers = outers.view(-1,9)
 
-    if is_regression:
-        # expand on label dimension
-        outcomes = outcomes[:,None]
-        # save dataset
-        torch.save((inners,outers,outcomes),'dataset_regression.pt')
-    else:
+    # def legal_move_repr(legal_moves):
+    #     feature_map = np.zeros((9,9))
+    #     for move in legal_moves:
+    #         row = move//9
+    #         col = move%9
+    #         feature_map[row,col] = 1
+    #     return feature_map
+
+    # for state, outcome in record_list:
+    #     depth = get_depth(state)
+    #     if depth >= 40:
+    #         #[40,50]
+    #         if depth <= 50:
+    #             group_1 += 1
+    #         #[50,60]
+    #         elif depth <= 60:
+    #             group_2 += 1
+    #         #[60,70]
+    #         elif depth <= 70:
+    #             group_3 += 1
+    #     current_player = state['current']
+    #     inner_board = state['inner']*current_player
+    #     outer_board = state['outer']*current_player
+    #     valid_moves = state['valid_move']
+
+    #     move_feature = legal_move_repr(valid_moves)
+    #     inner_board = np.concatenate((inner_board[None], move_feature[None]))
+
+    #     inners.append(inner_board)
+    #     outers.append(outer_board)
+
+    #     if is_regression:
+    #         # store the scalar record
+    #         outcomes.append(outcome)
+    #     else:
+    #         # store the category index
+    #         outcomes.append(categories.index(outcome))
+
+
+    # # to numpy arrays first
+    # inners = np.array(inners)
+    # outers = np.array(outers)
+
+    # # to tensors
+    # inners = torch.tensor(inners, dtype=torch.float64)
+    # outers = torch.tensor(outers, dtype=torch.float64)
+    # if is_regression:
+    #     outcomes = torch.tensor(outcomes, dtype=torch.float64)
+    # else:
+    #     outcomes = torch.tensor(outcomes, dtype=torch.int64)
     
-        # save dataset
-        torch.save((inners,outers,outcomes),'dataset_classification.pt')
+    # # flatten outer board
+    # outers = outers.view(-1,9)
+
+    # if is_regression:
+    #     # expand on label dimension
+    #     outcomes = outcomes[:,None]
+    #     # save dataset
+    #     if proof_only:
+    #         torch.save((inners,outers,outcomes),'dataset_regression_proof.pt')
+    #     else:
+    #         torch.save((inners,outers,outcomes),'dataset_regression_all.pt')
+    # else:
+    #     if proof_only:
+    #         # save dataset
+    #         torch.save((inners,outers,outcomes),'dataset_classification_proof.pt')
+    #     else:
+    #         torch.save((inners,outers,outcomes),'dataset_classification_all.pt')
 
 
     
@@ -259,7 +310,7 @@ def make_dataset(is_regression = True):
 
 
 def main():
-    make_dataset(True)
+    make_dataset(False)
     # print_stats(stats(pns_tt.TT),True)
     # for num in range(62, 61, -1):
     #     print('Rand play:', num)

@@ -148,12 +148,16 @@ def get_depth(state:dict):
     return total
 
 
-def to_list(table):
+def to_list(table, proof_only=False):
     out = []
     for record in table:
         if record:
             for entry in record:
-                out.append(entry)
+                if proof_only:
+                    if entry[1] in (PROVEN_WIN,PROVEN_DRAW,PROVEN_LOSS):
+                        out.append(entry)
+                else:
+                    out.append(entry)
     
     return out
 

@@ -7,9 +7,9 @@ def test_performance():
     NMCTS_win = 0
     MCTS_win = 0
     Draw = 0
-    p1 = NeuralMCTSPlayer(None,threshold=50,explore=0.3,is_regression=True)
+    p1 = NeuralMCTSPlayer(None,threshold=40,explore=0.3,is_regression=False)
     p2 = MCTSPlayer(None,explore=0.3)
-    for num in tqdm(range(100)):
+    for num in tqdm(range(200)):
         if num%2 == 0:
             game = UTTT(p1,p2,keep_history=False)
             game.play()

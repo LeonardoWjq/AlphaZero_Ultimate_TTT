@@ -13,7 +13,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def load_and_split(train_ratio=0.8, val_ratio = 0.1, shuffle = False, seed = 0, is_regression = True):
 
-    inners, outers, labels = torch.load('dataset_regression.pt') if is_regression else torch.load('dataset_classification.pt')
+    inners, outers, labels = torch.load('dataset_regression_proof.pt') if is_regression else torch.load('dataset_classification_proof.pt')
 
     assert len(inners) == len(outers) and len(outers) == len(labels)
 
@@ -111,7 +111,7 @@ def train(inners_train,outers_train,labels_train,inners_val,outers_val,labels_va
                 pred_classes = torch.argmax(pred_probs,dim=1)
 
                 # one-hot encoding of labels
-                one_hot_labels = F.one_hot(label, num_classes=5).type(torch.float64)
+                one_hot_labels = F.one_hot(label, num_classes=3).type(torch.float64)
 
                 # cross entropy loss on predicted probabilities and one hot labels
                 loss = criterion(pred_probs, one_hot_labels)

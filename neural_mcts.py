@@ -1,3 +1,4 @@
+from TT_util import PROVEN_DRAW, PROVEN_LOSS, PROVEN_WIN
 import environment as env
 import numpy as np
 import torch
@@ -246,24 +247,16 @@ class NeuralMCTS:
             next_moves, outputs = self.inference(game_state)
             if self.is_regression:
                 # minimum of opponent is max move to the current player
-                max_move_index = torch.argmin(outputs, dim=0).item()
-                return next_moves[max_move_index],'inferred'
+                next_move_index = torch.argmin(outputs, dim=0).item()
+                return next_moves[next_move_index],'inferred'
             else:
-                
-                preds = torch.argmax(outputs,dim=1)
+                classes = torch.tensor([[PROVEN_WIN], [PROVEN_DRAW], [PROVEN_LOSS]],dtype=torch.float64).to(device)
+                scores = torch.matmul(outputs,classes)
                 # The lower the chance the opponent will win
                 # the higher the chance the current player will win
-                max_class = -1
-                max_actions = []
-                for index,pred in enumerate(preds):
-                    if pred.item() > max_class:
-                        max_class = pred.item()
-                        max_actions = [next_moves[index]]
-                    elif pred.item() == max_class:
-                        max_actions.append(next_moves[index])
-                # random break tie
-                next_move = np.random.choice(max_actions)
-                return next_move,'inferred'
+                next_move_index = torch.argmin(scores, dim=0).item()
+                
+                return next_moves[next_move_index],'inferred'
 
 
 
@@ -331,6 +324,7 @@ class NeuralMCTS:
         self.root = new_node
     
     def count_step(self, board:np.array)->int:
+        
         '''
         count depth of the game
         '''
