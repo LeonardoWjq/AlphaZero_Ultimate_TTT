@@ -195,36 +195,29 @@ def make_dataset(is_regression = True):
     record_list = to_list(table,proof_only=True)
     random.shuffle(record_list)
 
-    test_size = 3000
+    test_size = 20000
 
     test_40 = []
     test_50 = []
     test_60 = []
     test_70 = []
     train = []
+    
 
     for record in record_list:
         depth = get_depth(record[0])
 
-        if depth == 40 and len(test_40) < test_size:
+        if depth in range(40,50) and len(test_40) < test_size:
             test_40.append(record)
-        elif depth == 50 and len(test_50) < test_size:
+        elif depth in range(50,60) and len(test_50) < test_size:
             test_50.append(record)
-        elif depth == 60 and len(test_60) < test_size:
+        elif depth in range(60,70) and len(test_60) < test_size:
             test_60.append(record)
-        elif depth == 70 and len(test_70) < test_size:
+        elif depth in range(70,80) and len(test_70) < test_size:
             test_70.append(record)
         else:
             train.append(record)
-        
     
-
-    inners = []
-    outers = []
-    outcomes = []
-    categories = (PROVEN_WIN,PROVEN_DRAW,PROVEN_LOSS)
-    
-
     def legal_move_repr(legal_moves):
         feature_map = np.zeros((9,9))
         for move in legal_moves:
@@ -232,6 +225,11 @@ def make_dataset(is_regression = True):
             col = move%9
             feature_map[row,col] = 1
         return feature_map
+
+    inners = []
+    outers = []
+    outcomes = []
+    categories = (PROVEN_WIN,PROVEN_DRAW,PROVEN_LOSS)
 
     for state, outcome in train:
         current_player = state['current']

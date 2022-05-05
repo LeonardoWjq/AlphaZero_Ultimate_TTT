@@ -53,7 +53,7 @@ def train(inners_train,outers_train,labels_train,inners_val,outers_val,labels_va
     outers_val = outers_val.to(device)
     labels_val = labels_val.to(device)
 
-    # regresion
+    # regression
     if is_regression:
         train_losses = []
         val_losses = []
@@ -86,7 +86,7 @@ def train(inners_train,outers_train,labels_train,inners_val,outers_val,labels_va
             train_losses.append(train_mse)
             val_losses.append(val_mse)
 
-        torch.save(network.state_dict(),'regression_model.pt')
+        torch.save(network.state_dict(),'models/regression_model.pt')
 
         with open('regression_losses.pickle','wb') as fp:
             pkl.dump((train_losses, val_losses),fp)
@@ -132,14 +132,54 @@ def train(inners_train,outers_train,labels_train,inners_val,outers_val,labels_va
             val_accs.append(val_accuracy)
             
 
-        torch.save(network.state_dict(),'classification_model.pt')
+        torch.save(network.state_dict(),'models/classification_model.pt')
 
         with open('classification_accs.pickle','wb') as fp:
             pkl.dump((train_accs, val_accs),fp)
 
 
+def evalualte(is_regression=True):
+    model = Network(is_regression)
+    if is_regression:
+        outcome = []
+        model.load_state_dict(torch.load('models/regression_model.pt'))
+        model.to(device)
+        model.eval()
+        criterion = nn.MSELoss()
 
-def plot_figure(is_regression=True):
+        with torch.no_grad():
+            for depth in (40,50,60,70):
+                # load test set
+                test_inners, test_outers, test_labels = torch.load(f'dataset/test_regression_{depth}.pt')
+                test_inners, test_outers, test_labels = test_inners.to(device), test_outers.to(device), test_labels.to(device)
+                # compute loss
+                test_pred = model(test_inners, test_outers)
+                test_loss = criterion(test_pred, test_labels)
+                mse = test_loss.item()
+                outcome.append((depth,mse))
+        # save test result
+        with open('test_results/test_regression.pickle','wb') as fp:
+            pkl.dump(outcome,fp)
+    else:
+        accuracies = []
+        model.load_state_dict(torch.load('models/classification_model.pt'))
+        model.to(device)
+        model.eval()
+        with torch.no_grad():
+            for depth in (40,50,60,70):
+                # load test set
+                test_inners, test_outers, test_labels = torch.load(f'dataset/test_classification_{depth}.pt')
+                test_inners, test_outers, test_labels = test_inners.to(device), test_outers.to(device), test_labels.to(device) 
+                # compute accuracy
+                pred_prob = model(test_inners, test_outers)
+                pred_labels = torch.argmax(pred_prob, dim=1)
+                acc = torch.sum(pred_labels == test_labels).item()/len(test_labels)
+                accuracies.append((depth,acc))
+        # save test result
+        with open('test_results/test_classification.pickle','wb') as fp:
+            pkl.dump(accuracies,fp)
+
+def plot_curve(is_regression=True):
     if is_regression:
         with open('regression_losses.pickle','rb') as fp:
             train_loss, val_loss = pkl.load(fp)
@@ -152,7 +192,7 @@ def plot_figure(is_regression=True):
             plt.ylabel('Mean Squared Error')
             plt.legend()
             plt.grid()
-            plt.savefig("regression_loss.png")
+            plt.savefig("plots/regression_loss.png")
     else:
         with open('classification_accs.pickle','rb') as fp:
             train_accs, val_accs = pkl.load(fp)
@@ -165,29 +205,30 @@ def plot_figure(is_regression=True):
             plt.ylabel('Accuracy')
             plt.legend()
             plt.grid()
-            plt.savefig("classification_acc.png")
+            plt.savefig("plots/classification_acc.png")
+
             
-def evalualte(test_inners, test_outers, test_labels, criterion, is_regression=True):
-    model = Network(is_regression)
-    if is_regression:
-        model.load_state_dict(torch.load('regression_model.pt'))
-        model.eval()
-        with torch.no_grad():
-            test_pred = model(test_inners, test_outers)
-            test_loss = criterion(test_pred, test_labels)
-            mse = test_loss.item()
-            print('Test MSE:', mse)
-        return mse
-    else:
-        model.load_state_dict(torch.load('classification_model.pt'))
-        model.eval()
-        with torch.no_grad():
-            pred_prob = model(test_inners, test_outers)
-            pred_labels = torch.argmax(pred_prob, dim=1)
-            acc = torch.sum(pred_labels == test_labels).item()/len(test_labels)
-            print(f"Test Accuracy: {acc:.2%}")
-        return acc 
         
+def plot_test(is_regression=True):
+    if is_regression:
+        with open('test_results/test_regression.pickle','rb') as fp:
+            losses = pkl.load(fp)
+            losses = np.array(losses)
+            plt.bar(losses[:,0],losses[:,1])
+            plt.title('Test MSE of the Regression Model over Depth')
+            plt.xlabel('depth')
+            plt.ylabel('MSE')
+            plt.savefig('plots/test_regression.png')
+    else:
+        with open('test_results/test_classification.pickle','rb') as fp:
+            losses = pkl.load(fp)
+            losses = np.array(losses)
+            plt.bar(losses[:,0],losses[:,1])
+            plt.ylim(0.9,1.0)
+            plt.title('Test Accuracy of the Classification Model over Depth')
+            plt.xlabel('depth')
+            plt.ylabel('accuracy')
+            plt.savefig('plots/test_classification.png')
 
 
 
@@ -196,14 +237,15 @@ def evalualte(test_inners, test_outers, test_labels, criterion, is_regression=Tr
 
 
 def main():
-    regression = False
-    # train_inners,train_outers,train_labels,val_inners,val_outers,val_labels = load_and_split(shuffle=True,seed=1,is_regression=regression)
-    # net = Network(is_regression=regression)
-    # criterion = nn.MSELoss() if regression else nn.CrossEntropyLoss()
-    # optimizer = optim.Adam(net.parameters(),lr=2e-4, weight_decay=1e-5)
-    # train(train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,net,criterion,optimizer,is_regression=regression,epochs=30,batch_size=64)
-    # evalualte(test_inners, test_outers, test_labels, criterion, is_regression=regression)
-    plot_figure(is_regression=regression)
+    regression = True
+    train_inners,train_outers,train_labels,val_inners,val_outers,val_labels = load_and_split(shuffle=True,seed=1,is_regression=regression)
+    net = Network(is_regression=regression)
+    criterion = nn.MSELoss() if regression else nn.CrossEntropyLoss()
+    optimizer = optim.Adam(net.parameters(),lr=2e-4, weight_decay=1e-5)
+    train(train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,net,criterion,optimizer,is_regression=regression,epochs=50,batch_size=64)
+    evalualte(regression)
+    plot_curve(regression)
+    plot_test(regression)
 
     
 
