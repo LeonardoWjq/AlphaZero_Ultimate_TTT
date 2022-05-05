@@ -180,6 +180,7 @@ def evalualte(is_regression=True):
             pkl.dump(accuracies,fp)
 
 def plot_curve(is_regression=True):
+    plt.figure(figsize=(10,5))
     if is_regression:
         with open('regression_losses.pickle','rb') as fp:
             train_loss, val_loss = pkl.load(fp)
@@ -210,6 +211,8 @@ def plot_curve(is_regression=True):
             
         
 def plot_test(is_regression=True):
+    plt.figure()
+    plt.tight_layout()
     if is_regression:
         with open('test_results/test_regression.pickle','rb') as fp:
             losses = pkl.load(fp)
@@ -224,7 +227,7 @@ def plot_test(is_regression=True):
             losses = pkl.load(fp)
             losses = np.array(losses)
             plt.bar(losses[:,0],losses[:,1])
-            plt.ylim(0.9,1.0)
+            plt.ylim(0.8,1.0)
             plt.title('Test Accuracy of the Classification Model over Depth')
             plt.xlabel('depth')
             plt.ylabel('accuracy')
@@ -237,12 +240,12 @@ def plot_test(is_regression=True):
 
 
 def main():
-    regression = True
+    regression = False
     train_inners,train_outers,train_labels,val_inners,val_outers,val_labels = load_and_split(shuffle=True,seed=1,is_regression=regression)
     net = Network(is_regression=regression)
     criterion = nn.MSELoss() if regression else nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters(),lr=2e-4, weight_decay=1e-5)
-    train(train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,net,criterion,optimizer,is_regression=regression,epochs=50,batch_size=64)
+    # train(train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,net,criterion,optimizer,is_regression=regression,epochs=50,batch_size=64)
     evalualte(regression)
     plot_curve(regression)
     plot_test(regression)
