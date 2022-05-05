@@ -197,112 +197,125 @@ def make_dataset(is_regression = True):
 
     test_size = 3000
 
-    group_1 = []
-    group_2 = []
-    group_3 = []
-    other = []
+    test_40 = []
+    test_50 = []
+    test_60 = []
+    test_70 = []
+    train = []
 
     for record in record_list:
         depth = get_depth(record[0])
-        if depth >= 40:
-            #[40,50]
-            if depth <= 50:
-                group_1.append(record)
-            #[50,60]
-            elif depth <= 60:
-                group_2.append(record)
-            #[60,70]
-            elif depth <= 70:
-                group_3.append(record)
-            # >70
-            else:
-                other.append(record)
-        # < 40
+
+        if depth == 40 and len(test_40) < test_size:
+            test_40.append(record)
+        elif depth == 50 and len(test_50) < test_size:
+            test_50.append(record)
+        elif depth == 60 and len(test_60) < test_size:
+            test_60.append(record)
+        elif depth == 70 and len(test_70) < test_size:
+            test_70.append(record)
         else:
-            other.append(record)
+            train.append(record)
         
-
-
-
-
-
-
-
-
-    # inners = []
-    # outers = []
-    # outcomes = []
-    # categories = (PROVEN_WIN,PROVEN_DRAW,PROVEN_LOSS)
     
 
-    # def legal_move_repr(legal_moves):
-    #     feature_map = np.zeros((9,9))
-    #     for move in legal_moves:
-    #         row = move//9
-    #         col = move%9
-    #         feature_map[row,col] = 1
-    #     return feature_map
-
-    # for state, outcome in record_list:
-    #     depth = get_depth(state)
-    #     if depth >= 40:
-    #         #[40,50]
-    #         if depth <= 50:
-    #             group_1 += 1
-    #         #[50,60]
-    #         elif depth <= 60:
-    #             group_2 += 1
-    #         #[60,70]
-    #         elif depth <= 70:
-    #             group_3 += 1
-    #     current_player = state['current']
-    #     inner_board = state['inner']*current_player
-    #     outer_board = state['outer']*current_player
-    #     valid_moves = state['valid_move']
-
-    #     move_feature = legal_move_repr(valid_moves)
-    #     inner_board = np.concatenate((inner_board[None], move_feature[None]))
-
-    #     inners.append(inner_board)
-    #     outers.append(outer_board)
-
-    #     if is_regression:
-    #         # store the scalar record
-    #         outcomes.append(outcome)
-    #     else:
-    #         # store the category index
-    #         outcomes.append(categories.index(outcome))
-
-
-    # # to numpy arrays first
-    # inners = np.array(inners)
-    # outers = np.array(outers)
-
-    # # to tensors
-    # inners = torch.tensor(inners, dtype=torch.float64)
-    # outers = torch.tensor(outers, dtype=torch.float64)
-    # if is_regression:
-    #     outcomes = torch.tensor(outcomes, dtype=torch.float64)
-    # else:
-    #     outcomes = torch.tensor(outcomes, dtype=torch.int64)
+    inners = []
+    outers = []
+    outcomes = []
+    categories = (PROVEN_WIN,PROVEN_DRAW,PROVEN_LOSS)
     
-    # # flatten outer board
-    # outers = outers.view(-1,9)
 
-    # if is_regression:
-    #     # expand on label dimension
-    #     outcomes = outcomes[:,None]
-    #     # save dataset
-    #     if proof_only:
-    #         torch.save((inners,outers,outcomes),'dataset_regression_proof.pt')
-    #     else:
-    #         torch.save((inners,outers,outcomes),'dataset_regression_all.pt')
-    # else:
-    #     if proof_only:
-    #         # save dataset
-    #         torch.save((inners,outers,outcomes),'dataset_classification_proof.pt')
-    #     else:
-    #         torch.save((inners,outers,outcomes),'dataset_classification_all.pt')
+    def legal_move_repr(legal_moves):
+        feature_map = np.zeros((9,9))
+        for move in legal_moves:
+            row = move//9
+            col = move%9
+            feature_map[row,col] = 1
+        return feature_map
+
+    for state, outcome in train:
+        current_player = state['current']
+        inner_board = state['inner']*current_player
+        outer_board = state['outer']*current_player
+        valid_moves = state['valid_move']
+
+        move_feature = legal_move_repr(valid_moves)
+        inner_board = np.concatenate((inner_board[None], move_feature[None]))
+
+        inners.append(inner_board)
+        outers.append(outer_board)
+
+        if is_regression:
+            # store the scalar record
+            outcomes.append(outcome)
+        else:
+            # store the category index
+            outcomes.append(categories.index(outcome))
+
+    # to numpy arrays first
+    inners = np.array(inners)
+    outers = np.array(outers)
+    # to tensors
+    inners = torch.tensor(inners, dtype=torch.float64)
+    outers = torch.tensor(outers, dtype=torch.float64)
+    if is_regression:
+        outcomes = torch.tensor(outcomes, dtype=torch.float64)
+    else:
+        outcomes = torch.tensor(outcomes, dtype=torch.int64)
+    # flatten outer board
+    outers = outers.view(-1,9)
+
+    if is_regression:
+        # expand on label dimension
+        outcomes = outcomes[:,None]
+        torch.save((inners,outers,outcomes),'dataset/train_regression.pt')
+    else:
+        # save dataset
+        torch.save((inners,outers,outcomes),'dataset/train_classification.pt')
+
+    for depth, group in ((40,test_40),(50,test_50),(60,test_60),(70,test_70)):
+        inners = []
+        outers = []
+        outcomes = []
+        for state, outcome in group:
+            current_player = state['current']
+            inner_board = state['inner']*current_player
+            outer_board = state['outer']*current_player
+            valid_moves = state['valid_move']
+
+            move_feature = legal_move_repr(valid_moves)
+            inner_board = np.concatenate((inner_board[None], move_feature[None]))
+
+            inners.append(inner_board)
+            outers.append(outer_board)
+
+            if is_regression:
+                # store the scalar record
+                outcomes.append(outcome)
+            else:
+                # store the category index
+                outcomes.append(categories.index(outcome))
+
+        # to numpy arrays first
+        inners = np.array(inners)
+        outers = np.array(outers)
+        # to tensors
+        inners = torch.tensor(inners, dtype=torch.float64)
+        outers = torch.tensor(outers, dtype=torch.float64)
+        if is_regression:
+            outcomes = torch.tensor(outcomes, dtype=torch.float64)
+        else:
+            outcomes = torch.tensor(outcomes, dtype=torch.int64)
+        # flatten outer board
+        outers = outers.view(-1,9)
+        if is_regression:
+            # expand on label dimension
+            outcomes = outcomes[:,None]
+            torch.save((inners,outers,outcomes),f'dataset/test_regression_{depth}.pt')
+        else:
+            # save dataset
+            torch.save((inners,outers,outcomes),f'dataset/test_classification_{depth}.pt')
+       
 
 
     

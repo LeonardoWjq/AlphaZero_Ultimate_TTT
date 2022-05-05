@@ -11,9 +11,9 @@ import numpy as np
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def load_and_split(train_ratio=0.8, val_ratio = 0.1, shuffle = False, seed = 0, is_regression = True):
+def load_and_split(train_ratio=0.95, shuffle = False, seed = 0, is_regression = True):
 
-    inners, outers, labels = torch.load('dataset_regression_proof.pt') if is_regression else torch.load('dataset_classification_proof.pt')
+    inners, outers, labels = torch.load('dataset/train_regression.pt') if is_regression else torch.load('dataset/train_classification.pt')
 
     assert len(inners) == len(outers) and len(outers) == len(labels)
 
@@ -27,21 +27,17 @@ def load_and_split(train_ratio=0.8, val_ratio = 0.1, shuffle = False, seed = 0, 
 
     # point of split train/test
     train_size = int(len(inners)*train_ratio)
-    val_size = int(len(inners)*val_ratio)
 
     train_inners = inners[:train_size]
     train_outers = outers[:train_size]
     train_labels = labels[:train_size]
 
-    val_inners = inners[train_size:train_size+val_size]
-    val_outers = outers[train_size:train_size+val_size]
-    val_labels = labels[train_size:train_size+val_size]
+    val_inners = inners[train_size:]
+    val_outers = outers[train_size:]
+    val_labels = labels[train_size:]
 
-    test_inners = inners[train_size+val_size:]
-    test_outers = outers[train_size+val_size:]
-    test_labels = labels[train_size+val_size:]
     
-    return train_inners, train_outers, train_labels, val_inners, val_outers, val_labels, test_inners, test_outers, test_labels
+    return train_inners, train_outers, train_labels, val_inners, val_outers, val_labels
 
 
 
@@ -201,13 +197,14 @@ def evalualte(test_inners, test_outers, test_labels, criterion, is_regression=Tr
 
 def main():
     regression = False
-    train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,test_inners,test_outers,test_labels = load_and_split(train_ratio=0.9,val_ratio=0.01, shuffle=True,seed=1,is_regression=regression)
-    net = Network(is_regression=regression)
-    criterion = nn.MSELoss() if regression else nn.CrossEntropyLoss()
-    optimizer = optim.Adam(net.parameters(),lr=2e-4, weight_decay=1e-5)
-    train(train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,net,criterion,optimizer,is_regression=regression,epochs=30,batch_size=64)
-    evalualte(test_inners, test_outers, test_labels, criterion, is_regression=regression)
+    # train_inners,train_outers,train_labels,val_inners,val_outers,val_labels = load_and_split(shuffle=True,seed=1,is_regression=regression)
+    # net = Network(is_regression=regression)
+    # criterion = nn.MSELoss() if regression else nn.CrossEntropyLoss()
+    # optimizer = optim.Adam(net.parameters(),lr=2e-4, weight_decay=1e-5)
+    # train(train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,net,criterion,optimizer,is_regression=regression,epochs=30,batch_size=64)
+    # evalualte(test_inners, test_outers, test_labels, criterion, is_regression=regression)
     plot_figure(is_regression=regression)
+
     
 
 if __name__ == '__main__':
