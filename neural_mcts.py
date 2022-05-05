@@ -192,12 +192,12 @@ class NeuralMCTS:
         self.threshold = threshold
         if is_regression:
             self.network = Network(True)
-            self.network.load_state_dict(torch.load('regression_model.pt'))
+            self.network.load_state_dict(torch.load('models/regression_model.pt'))
             self.network.to(device)
             self.network.eval()
         else:
             self.network = Network(False)
-            self.network.load_state_dict(torch.load('classification_model.pt'))
+            self.network.load_state_dict(torch.load('models/classification_model.pt'))
             self.network.to(device)
             self.network.eval()
 
