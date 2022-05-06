@@ -217,7 +217,7 @@ def plot_test(is_regression=True):
         with open('test_results/test_regression.pickle','rb') as fp:
             losses = pkl.load(fp)
             losses = np.array(losses)
-            plt.bar(losses[:,0],losses[:,1])
+            plt.bar(['40-50','50-60','60-70','70-80'],losses[:,1])
             plt.title('Test MSE of the Regression Model over Depth')
             plt.xlabel('depth')
             plt.ylabel('MSE')
@@ -226,7 +226,7 @@ def plot_test(is_regression=True):
         with open('test_results/test_classification.pickle','rb') as fp:
             losses = pkl.load(fp)
             losses = np.array(losses)
-            plt.bar(losses[:,0],losses[:,1])
+            plt.bar(['40-50','50-60','60-70','70-80'],losses[:,1])
             plt.ylim(0.8,1.0)
             plt.title('Test Accuracy of the Classification Model over Depth')
             plt.xlabel('depth')

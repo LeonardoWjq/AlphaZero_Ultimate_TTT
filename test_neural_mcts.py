@@ -69,8 +69,8 @@ def print_result(thresholds, is_regression=True):
 
 
 def main():
-    test_performance(thresholds=(45,55,65),is_regression=True,num_game=100)
-    print_result((45,55,65),is_regression=True)
+    test_performance(thresholds=(45,55,65),is_regression=False,num_game=100)
+    print_result((45,55,65),is_regression=False)
     # p1_win = 0
     # p2_win = 0
     # draw = 0

@@ -161,7 +161,7 @@ def print_stats(statistics:dict, plot=False):
         plt.ylabel('Count')
         plt.grid()
         # plt.show()
-        plt.savefig('distribution.png')
+        plt.savefig('plots/distribution.png')
 
 
 def test_running_time(num_game:int = 20, num_playout:int = 60):
@@ -321,8 +321,8 @@ def make_dataset(is_regression = True):
 
 
 def main():
-    make_dataset(False)
-    # print_stats(stats(pns_tt.TT),True)
+    # make_dataset(False)
+    print_stats(stats(pns_tt.TT),True)
     # for num in range(62, 61, -1):
     #     print('Rand play:', num)
     #     # take the first 2000 games as tests
