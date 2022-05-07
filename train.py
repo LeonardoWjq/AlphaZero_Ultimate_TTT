@@ -240,15 +240,15 @@ def plot_test(is_regression=True):
 
 
 def main():
-    regression = False
+    regression = True
     train_inners,train_outers,train_labels,val_inners,val_outers,val_labels = load_and_split(shuffle=True,seed=1,is_regression=regression)
     net = Network(is_regression=regression)
     criterion = nn.MSELoss() if regression else nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters(),lr=2e-4, weight_decay=1e-5)
-    # train(train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,net,criterion,optimizer,is_regression=regression,epochs=50,batch_size=64)
+    train(train_inners,train_outers,train_labels,val_inners,val_outers,val_labels,net,criterion,optimizer,is_regression=regression,epochs=50,batch_size=64)
     evalualte(regression)
-    plot_curve(regression)
-    plot_test(regression)
+    # plot_curve(regression)
+    # plot_test(regression)
 
     
 
