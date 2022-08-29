@@ -2,9 +2,11 @@ import numpy as np
 import torch
 import random
 import mcts
-from Network import Network
-from policy import NNPolicy
+import mcts_pns
+from neural_net import Network
+from policy import NNPolicy, RandomPolicy
 from termcolor import colored
+from neural_mcts import NeuralMCTS
 class Player:
     def move(self, state: dict)->int:
         pass
@@ -45,16 +47,14 @@ class HumanPlayer(Player):
 
 class MCTSPlayer(Player):
     # initialize the attributes
-    def __init__(self,prior_policy,sim_player,num_simulation = 200, store_hist = False) -> None:
-        self.pol = prior_policy
-        self.sim = sim_player
+    def __init__(self, sim_player,num_simulation = 200, explore = 0.4, store_hist = False) -> None:
+        self.sim = sim_player if sim_player else RandomPlayer()
         self.mcts_agent = None
         self.num_sim = num_simulation
-        # store the number of step in one game
-        self.step = 0
         # flag for storing the history of play
         self.store_hist = store_hist
         self.history = []
+        self.C = explore
 
         
     '''
@@ -64,19 +64,19 @@ class MCTSPlayer(Player):
     def move(self,state:dict):
         # create the MCTS agent if it does not exist
         if self.mcts_agent is None:
-            self.mcts_agent = mcts.MCTS(state,self.pol,self.sim)
+            self.mcts_agent = mcts.MCTS(state,self.sim,exploration_factor=self.C)
             self.mcts_agent.run_simumation(self.num_sim)
-            move,probs = self.mcts_agent.get_move()
+            move = self.mcts_agent.get_move()
         else:
             # do a transplantation
             self.mcts_agent.transplant(state)
             self.mcts_agent.run_simumation(self.num_sim)
-            move,probs = self.mcts_agent.get_move()
+            move = self.mcts_agent.get_move()
         
         # store history
         if self.store_hist:
             relative_board = state['inner']*state['current']
-            self.history.append((relative_board, probs))
+            self.history.append((relative_board))
         
         return move
 
@@ -88,7 +88,6 @@ class MCTSPlayer(Player):
     '''
     def reset(self):
         self.mcts_agent = None
-        self.step = 0
         self.history = []
     
     '''
@@ -157,4 +156,87 @@ class AlphaZeroPlayer(Player):
         
         
         
+class MCTSPNSPlayer(Player):
+    # initialize the attributes
+    def __init__(self,prior_policy,sim_player,num_simulation = 200) -> None:
+        self.pol = prior_policy if prior_policy else RandomPolicy()
+        self.sim = sim_player if sim_player else RandomPlayer()
+        self.mctspns_agt = None
+        self.num_sim = num_simulation
+        self.info = {'simulated':0, 'proven':0,'pre-proven':0}
+                
+    '''
+    select a move given a state
+    '''
+    def move(self,state:dict):
+        # create the MCTS agent if it does not exist
+        if self.mctspns_agt is None:
+            self.mctspns_agt = mcts_pns.MCTSPNS(state, self.pol, self.sim)
+            self.mctspns_agt.run_simumation(self.num_sim)
+            move,_,key = self.mctspns_agt.get_move()
+        else:
+            # do a transplantation
+            self.mctspns_agt.transplant(state)
+            self.mctspns_agt.run_simumation(self.num_sim)
+            move,_, key= self.mctspns_agt.get_move()
+        
+        self.info[key] += 1
+        print(move)
+        return move
+    
+    def get_info(self):
+        return self.info
+
+    '''
+    reset the player for a new game:
+    set agent to None
+    set step to 0
+    clear the history buffer
+    '''
+    def reset(self):
+        self.mctspns_agt = None
+        self.info = {'simulated':0, 'proven':0,'pre-proven':0}
+
+
+class NeuralMCTSPlayer(Player):
+    # initialize the attributes
+    def __init__(self,sim_player,num_simulation=200,threshold=50,explore = 0.4,is_regression=True) -> None:
+        self.sim = sim_player if sim_player else RandomPlayer()
+        self.nmcts_agt = None
+        self.num_sim = num_simulation
+        self.regression = is_regression
+        self.threshold = threshold
+        self.C = explore
+        self.info = {'simulated':0, 'inferred':0}
+                
+    '''
+    select a move given a state
+    '''
+    def move(self,state:dict):
+        # create the MCTS agent if it does not exist
+        if self.nmcts_agt is None:
+            self.nmcts_agt = NeuralMCTS(state,self.sim,exploration_factor=self.C,threshold=self.threshold,is_regression=self.regression)
+            self.nmcts_agt.run_simumation(self.num_sim)
+            move,key = self.nmcts_agt.get_move()
+        else:
+            # do a transplantation
+            self.nmcts_agt.transplant(state)
+            self.nmcts_agt.run_simumation(self.num_sim)
+            move,key= self.nmcts_agt.get_move()
+        
+        self.info[key] += 1
+        return move
+    
+    def get_info(self):
+        return self.info
+
+    '''
+    reset the player for a new game:
+    set agent to None
+    set step to 0
+    clear the history buffer
+    '''
+    def reset(self):
+        self.nmcts_agt = None
+        self.info = {'simulated':0, 'inferred':0}
         

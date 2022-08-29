@@ -1,6 +1,5 @@
-__pycache__/environment.cpython-38.pyc
-__pycache__/mcts.cpython-38.pyc
-__pycache__/Network.cpython-38.pyc
-__pycache__/policy.cpython-38.pyc
-__pycache__/player.cpython-38.pyc
+__pycache__/*
 .DS_Store
+tt*.pickle
+dataset/*
+venv
