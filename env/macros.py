@@ -1,0 +1,7 @@
+X = 1
+O = -1
+EMPTY = 0
+X_WIN = 1
+O_WIN = -1
+TIE = 2
+INCOMPLETE = 0
