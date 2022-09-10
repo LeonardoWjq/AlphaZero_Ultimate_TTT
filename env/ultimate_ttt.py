@@ -3,6 +3,7 @@ from termcolor import colored
 from macros import *
 from utils.env_utils import *
 from players.random_player import RandomPlayer
+from players.human_player import HumanPlayer
 from collections import namedtuple
 
 Step = namedtuple('Step', ['previous_move', 'move'])
@@ -212,13 +213,9 @@ class UltimateTTT:
 
 def main():
     px = RandomPlayer()
-    po = RandomPlayer()
-    game1 = UltimateTTT(px, po)
-    game1.update_state(0)
-    game1.update_state(1)
-    game1.update_state(2)
-    game2 = UltimateTTT(px, po, state=game1.get_state())
-    game2.play('end')
+    po = HumanPlayer()
+    game = UltimateTTT(px, po)
+    game.play('all')
 
 
 if __name__ == '__main__':
