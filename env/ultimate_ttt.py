@@ -1,6 +1,6 @@
 import numpy as np
 from termcolor import colored
-from macros import *
+from env.macros import *
 from utils.env_utils import *
 from players.random_player import RandomPlayer
 from players.human_player import HumanPlayer
