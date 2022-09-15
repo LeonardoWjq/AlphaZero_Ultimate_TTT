@@ -8,7 +8,7 @@ class NegaMax:
     def __init__(self, state:dict) -> None:
         self.game = UltimateTTT(None, None, state)
     
-    def run(self) -> bool:
+    def run(self):
         '''
         return a (score, best move)
         score 1 denotes win for the current player
