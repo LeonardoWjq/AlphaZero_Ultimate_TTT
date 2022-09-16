@@ -4,7 +4,7 @@ from players.human_player import HumanPlayer
 from utils.test_utils import generate_random_game
 
 
-def test_negamax_player(rollout_num=55, seed=0):
+def test_boolean_minimax_player(rollout_num=55, seed=0):
     random_state = generate_random_game(rollout_num, seed)
     px = HumanPlayer()
     po = BooleanMinimaxPlayer(verbose=True)
@@ -13,4 +13,4 @@ def test_negamax_player(rollout_num=55, seed=0):
 
 
 if __name__ == '__main__':
-    test_negamax_player(45, 1)
+    test_boolean_minimax_player(45, 1)
