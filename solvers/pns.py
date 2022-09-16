@@ -156,24 +156,3 @@ class PNS:
             self.root.children, pn)  # root player is always an or node
 
         return move
-
-    # def print_trace(self):
-    #     '''
-    #     print out the trace that leads to the outcome of search
-    #     '''
-    #     node = self.root
-    #     self.game.display_board()
-    #     self.game.display_board('outer')
-    #     while not node.is_leaf_node:
-    #         pn, dn = node.get_numbers()
-    #         player = 'x' if node.state['current'] == 1 else 'o'
-    #         if node.is_or_node:
-    #             move, node = node.find_equal_child_pn(node.children,pn)
-    #         else:
-    #             move, node = node.find_equal_child_dn(node.children,dn)
-
-    #         row, col = move//9, move%9
-    #         print(f'Player {player} made the move {row, col}')
-    #         game = UltimateTTT(None,None,node.state)
-    #         game.display_board()
-    #         game.display_board('outer')
