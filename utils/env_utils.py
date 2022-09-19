@@ -90,6 +90,14 @@ def get_valid_moves(inner_board: np.ndarray, outer_board: np.ndarray, previous_m
 def switch_player(player):
     assert player == X or player == O, f'player of value {player} not recognized'
     return O if player == X else X
+
+def equal_state(state1: dict, state2: dict):
+    inner_board1 = state1['inner_board']
+    inner_board2 = state2['inner_board']
+    if not np.array_equal(inner_board1, inner_board2): return False
+    if state1['current_player'] != state2['current_player']: return False
+    if state1['previous_move'] != state2['previous_move']: return False
+    return True
 # --------------------------------------------- transformation functionalities ---------------------------------------------
 
 def ordinal_to_coordinate(ordinal: int, target_board: str = 'inner'):
