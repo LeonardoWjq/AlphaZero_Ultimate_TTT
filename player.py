@@ -10,56 +10,7 @@ from neural_mcts import NeuralMCTS
 
 
 
-class MCTSPlayer(Player):
-    # initialize the attributes
-    def __init__(self, sim_player,num_simulation = 200, explore = 0.4, store_hist = False) -> None:
-        self.sim = sim_player if sim_player else RandomPlayer()
-        self.mcts_agent = None
-        self.num_sim = num_simulation
-        # flag for storing the history of play
-        self.store_hist = store_hist
-        self.history = []
-        self.C = explore
 
-        
-    '''
-    select a move given a state
-    store the history if the flag is True
-    '''
-    def move(self,state:dict):
-        # create the MCTS agent if it does not exist
-        if self.mcts_agent is None:
-            self.mcts_agent = mcts.MCTS(state,self.sim,exploration_factor=self.C)
-            self.mcts_agent.run_simumation(self.num_sim)
-            move = self.mcts_agent.get_move()
-        else:
-            # do a transplantation
-            self.mcts_agent.transplant(state)
-            self.mcts_agent.run_simumation(self.num_sim)
-            move = self.mcts_agent.get_move()
-        
-        # store history
-        if self.store_hist:
-            relative_board = state['inner']*state['current']
-            self.history.append((relative_board))
-        
-        return move
-
-    '''
-    reset the player for a new game:
-    set agent to None
-    set step to 0
-    clear the history buffer
-    '''
-    def reset(self):
-        self.mcts_agent = None
-        self.history = []
-    
-    '''
-    return the history buffer
-    '''
-    def get_history(self):
-        return self.history
 
 
 class NNPlayer(Player):
