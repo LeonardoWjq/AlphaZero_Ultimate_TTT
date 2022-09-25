@@ -1,12 +1,13 @@
+import os
+
+import haiku as hk
 import jax
 import jax.numpy as jnp
-import haiku as hk
 from jax.nn import relu
-import os
 
 
 class ResBlock(hk.Module):
-    def __init__(self, dim: int, name:str):
+    def __init__(self, dim: int, name: str):
         super().__init__(name)
         self.conv1 = hk.Conv2D(
             output_channels=dim//2, kernel_shape=3, data_format='NCHW', name='first_convolution')
