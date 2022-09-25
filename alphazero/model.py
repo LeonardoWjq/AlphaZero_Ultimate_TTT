@@ -48,11 +48,15 @@ class PolicyHead(hk.Module):
 
 
 class ResNet(hk.Module):
-    def __init__(self, name=None):
+    def __init__(self, is_train: bool, name=None):
         super().__init__(name)
+        self.is_train = is_train
         self.conv = hk.Conv2D(output_channels=8, kernel_shape=3,
                               data_format='NCHW', name='input_convolution')
+        self.batch_norm1 = hk.BatchNorm(create_scale=True, create_offset=True,
+                                        decay_rate=0.9, data_format='NCHW', name='input_conv_batch_norm')
         self.resblock1 = ResBlock(8, name='first_residual_block')
+        # self.batch_norm2 =
         self.resblock2 = ResBlock(8, name='second_residual_block')
         self.flatten = hk.Flatten(name='flatten')
         self.value_head = ValueHead()
@@ -60,25 +64,46 @@ class ResNet(hk.Module):
 
     def __call__(self, x):
         x = relu(self.conv(x))
+        x = self.batch_norm1(x, is_training=self.is_train)
         x = relu(self.resblock1(x))
         x = relu(self.resblock2(x))
         feature = self.flatten(x)
         return self.value_head(feature), self.policy_head(feature)
 
 
-def resnet_forward(state):
-    resnet = ResNet()
-    return resnet(state)
+def create_model(training: bool):
+    '''
+    create a haiku transformed residual network function
+    '''
+    def forward(state):
+        resnet = ResNet(is_train=training)
+        return resnet(state)
+    model = hk.without_apply_rng(hk.transform_with_state(forward))
+    return model
+
+
+def init_model(model, seed: int = 0):
+    '''
+    initialize a haiku transformed function given the random seed
+    return parameters, state
+    '''
+    dummy_state = jnp.zeros((1, 17, 9, 9))
+    key = jax.random.PRNGKey(seed)
+    params, state = model.init(rng=key, state=dummy_state)
+    return params, state
+
+
+def model_summary(model):
+    dummy_state = jnp.zeros((1, 17, 9, 9))
+    summary = hk.experimental.tabulate(model)(dummy_state)
+    dir_path = os.path.dirname(__file__)
+    with open(os.path.join(dir_path, 'model_visual.txt'), 'w') as fp:
+        fp.write(summary)
 
 
 if __name__ == '__main__':
-    dummy_state = jnp.zeros((1, 17, 9, 9))
-    network = hk.without_apply_rng(hk.transform(resnet_forward))
-    model = hk.experimental.tabulate(network)(dummy_state)
-    dir_path = os.path.dirname(__file__)
-    with open(os.path.join(dir_path, 'model_visual.txt'), 'w') as fp:
-        fp.write(model)
-    key = jax.random.PRNGKey(0)
-    params = network.init(rng=key, state=dummy_state)
-    val, logits = network.apply(params, jnp.ones((10, 17, 9, 9)))
+    model = create_model(True)
+    model_summary(model)
+    params, state = init_model(model, seed=0)
+    (val, logits), state = model.apply(params, state, jnp.ones((10, 17, 9, 9)))
     print(val.shape, logits.shape)
