@@ -1,4 +1,4 @@
-from mcts.mcts import MCTS
+from mcts.core import MCTS
 
 from players.player import Player
 from players.random_player import RandomPlayer
