@@ -124,5 +124,6 @@ if __name__ == '__main__':
     model = create_model(True)
     model_summary(model)
     params, state = init_model(model, seed=0)
-    (val, logits), state = model.apply(params, state, jnp.ones((10, 17, 9, 9)))
+    model2 = create_model(False)
+    (val, logits), state = model2.apply(params, state, jnp.ones((10, 17, 9, 9)))
     print(val.shape, logits.shape)
