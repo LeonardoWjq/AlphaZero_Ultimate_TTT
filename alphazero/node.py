@@ -18,30 +18,30 @@ class Node:
     game_state is already in history
     '''
 
-    def __init__(self, game_state: dict, history: deque, model, model_params, model_state, explore_factor: float) -> None:
+    def __init__(self, game_state: dict, history: deque, forward_func, explore_factor: float) -> None:
         self.state: dict = game_state
         self.C: float = explore_factor
-        self.model = model
-        self.model_params = model_params
-        self.model_state = model_state
+        self.forward = forward_func
         self.current_player: int = game_state['current_player']
         self.history: deque = copy(history)
-
-        inner_board = game_state['inner_board']
-        outer_board = inner_to_outer(inner_board)
-        prev_move = game_state['previous_move']
-        valid_moves = get_valid_moves(inner_board, outer_board, prev_move)
-
-        self.feature = create_feature(history, self.current_player)
-        state_value, priors = get_val_and_pol(
-            model, model_params, model_state, self.feature, valid_moves)
-
-        self.state_val: float = state_value
-        self.edges: dict = {}
-        for index, move in enumerate(valid_moves):
-            self.edges[move] = Edge(prior_prob=priors[index])
-
         self.outcome: int = game_state['outcome']
+
+        if self.outcome == INCOMPLETE:
+            inner_board = game_state['inner_board']
+            outer_board = inner_to_outer(inner_board)
+            prev_move = game_state['previous_move']
+            valid_moves = get_valid_moves(inner_board, outer_board, prev_move)
+
+            self.feature = create_feature(history, self.current_player)
+
+            state_value, priors = get_val_and_pol(forward_func, self.feature, valid_moves)
+                
+            self.state_val: float = state_value
+            self.edges: dict = {}
+            for index, move in enumerate(valid_moves):
+                self.edges[move] = Edge(prior_prob=priors[index])
+
+        
 
     def unroll(self) -> int:
         '''
@@ -102,8 +102,7 @@ class Node:
             next_hist.appendleft(next_state)
 
             # create new tree node
-            new_node = Node(next_state, next_hist, self.model,
-                            self.model_params, self.model_state, self.C)
+            new_node = Node(next_state, next_hist, self.forward, self.C)
             edge.set_node(new_node)
 
             score = new_node.unroll()
