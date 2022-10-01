@@ -42,14 +42,13 @@ def create_feature(history: deque, player):
     feature = np.concatenate(feature_list)
     feature = np.expand_dims(feature, 0)
 
-    assert feature.shape == (
-        1, 17, 9, 9), f'feature has an erroneous shape of {feature.shape}'
+    assert feature.shape == (1, 17, 9, 9), f'feature has an erroneous shape of {feature.shape}'
     return feature
 
 
-def get_val_and_pol(model, params, state, feature: np.ndarray, valid_moves):
+def get_val_and_pol(forward_func, feature: np.ndarray, valid_moves):
     feature = jnp.asarray(feature)
-    (val, logits), _ = model.apply(params, state, feature)
+    val, logits = forward_func(feature)
     
     valid_logits = logits[0, valid_moves]
     probs = softmax(valid_logits)
