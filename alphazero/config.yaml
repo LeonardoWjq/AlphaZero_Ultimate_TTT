@@ -1,0 +1,10 @@
+total_games: 100
+games_per_train: 10
+iterations: 5
+batch_size: 512
+seed: 0
+lr: 1.0e-3
+self_play_args:
+  sim_num: 100
+  explore_factor: 3.5
+  temperature: 1.0
