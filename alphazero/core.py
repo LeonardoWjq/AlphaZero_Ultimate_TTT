@@ -1,7 +1,7 @@
 from collections import deque
 
 import jax.numpy as jnp
-from jax import random
+from jax import random, jit
 
 from alphazero.model import create_model, init_model
 from alphazero.record import Record
@@ -11,25 +11,28 @@ from utils.alphazero_utils import get_move_probs
 import numpy as np
 from env.ultimate_ttt import UltimateTTT
 
+
 class AlphaZero:
-    def __init__(self, model_params, model_state, sim_num: int = 100, explore_factor: float = 3.5, temperature: float = 1.0, seed: int = 0) -> None:
-        self.model = create_model(training=False)
-        self.model_params = model_params
-        self.model_state = model_state
+    def __init__(self, model_params, model_state, PRNGkey, sim_num: int, explore_factor: float, temperature: float) -> None:
+        model = create_model(training=False)
+
+        def forward(feature):
+            (val, logits), _ = model.apply(model_params, model_state, feature)
+            return val, logits
+        self.forward_func = jit(forward)
         self.sim_num = sim_num
         self.history = deque([], maxlen=8)
         self.traj_record = []
         self.C = explore_factor
         self.tau = temperature
-        self.key = random.PRNGKey(seed)
+        self.key = PRNGkey
 
     def get_move(self, state: dict):
         self.history.appendleft(state)
 
-        node = Node(state, self.history, self.model,
-                    self.model_params, self.model_state, self.C)
-
-        for _ in range(self.sim_num): node.simulate()
+        node = Node(state, self.history, self.forward_func, self.C)
+        for _ in range(self.sim_num):
+            node.simulate()
 
         moves, visit_counts = node.get_dist()
         move_probs = get_move_probs(moves, visit_counts, self.tau)
@@ -50,6 +53,8 @@ class AlphaZero:
 
         return move
 
+    def get_traj_record(self):
+        return self.traj_record
 
 
 def main():
