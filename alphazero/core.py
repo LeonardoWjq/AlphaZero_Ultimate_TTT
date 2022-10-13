@@ -1,19 +1,17 @@
 from collections import deque
 
-import jax.numpy as jnp
-from jax import random, jit
+from env.ultimate_ttt import UltimateTTT
+from jax import jit, random
+from utils.alphazero_utils import get_move_probs
+from utils.test_utils import generate_random_game
 
 from alphazero.model import create_model, init_model
-from alphazero.record import Record
 from alphazero.node import Node
-from utils.test_utils import generate_random_game
-from utils.alphazero_utils import get_move_probs
-import numpy as np
-from env.ultimate_ttt import UltimateTTT
+from alphazero.record import Record
 
 
 class AlphaZero:
-    def __init__(self, model_params, model_state, PRNGkey, sim_num: int, explore_factor: float, temperature: float) -> None:
+    def __init__(self, model_params, model_state, PRNGkey, sim_num: int, explore_factor: float, temperature: float, alpha, epsilon) -> None:
         model = create_model(training=False)
 
         def forward(feature):
@@ -26,11 +24,15 @@ class AlphaZero:
         self.C = explore_factor
         self.tau = temperature
         self.key = PRNGkey
+        self.alpha = alpha
+        self.epsilon = epsilon
 
     def get_move(self, state: dict):
         self.history.appendleft(state)
+        self.key, node_key, move_key = random.split(self.key, num=3)
 
-        node = Node(state, self.history, self.forward_func, self.C)
+        node = Node(state, self.history, self.forward_func,
+                    self.C, True, node_key, self.alpha, self.epsilon)
         for _ in range(self.sim_num):
             node.simulate()
 
@@ -38,8 +40,7 @@ class AlphaZero:
         move_probs = get_move_probs(moves, visit_counts, self.tau)
 
         # select move
-        self.key, subkey = random.split(self.key)
-        move = random.choice(subkey, 81, (), p=move_probs)
+        move = random.choice(move_key, 81, (), p=move_probs)
 
         feature = node.get_feature()
         record = Record(feature=feature, search_prob=move_probs)
@@ -60,7 +61,8 @@ class AlphaZero:
 def main():
     model = create_model(True)
     params, state = init_model(model)
-    alpha = AlphaZero(params, state, sim_num=10, seed=2)
+    key = random.PRNGKey(0)
+    alpha = AlphaZero(params, state, key, 50, 3.5, 1.0, 0.5, 0.25)
     game = generate_random_game(30)
     move = alpha.get_move(game)
     print(move)
