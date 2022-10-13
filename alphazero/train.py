@@ -1,5 +1,6 @@
 import os
 import pickle
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 
 import haiku as hk
@@ -9,7 +10,8 @@ import optax
 import yaml
 from env.macros import *
 from env.ultimate_ttt import UltimateTTT
-from jax import jit, value_and_grad
+from jax import grad, jit
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from alphazero.core import AlphaZero
@@ -20,11 +22,11 @@ from alphazero.replay_buffer import ReplayBuffer
 dir_path = os.path.dirname(__file__)
 
 
-def self_play(model_params: dict, model_state: dict, PRNGkey, sim_num: int, explore_factor: float, temperature: float):
+def self_play(model_params: dict, model_state: dict, PRNGkey, sim_num: int, explore_factor: float, temperature: float, alpha:float, epsilon:float):
     px = AlphaZero(model_params, model_state, PRNGkey,
-                   sim_num, explore_factor, temperature)
+                   sim_num, explore_factor, temperature, alpha, epsilon)
     po = AlphaZero(model_params, model_state, PRNGkey,
-                   sim_num, explore_factor, temperature)
+                   sim_num, explore_factor, temperature, alpha, epsilon)
     game = UltimateTTT(None, None)
     game_state = game.get_state()
 
@@ -67,6 +69,8 @@ def train(total_games: int, games_per_train: int, iterations: int, lr: float, ba
     opt_state = opt.init(params)
     rand_gen = hk.PRNGSequence(seed)
     replay_buffer = ReplayBuffer(seed)
+    writer = SummaryWriter(os.path.join(dir_path, 'log'))
+    train_steps = 0
 
     @jit
     def loss_func(params, state, feature, true_score, search_prob):
@@ -74,35 +78,46 @@ def train(total_games: int, games_per_train: int, iterations: int, lr: float, ba
         val_loss = optax.l2_loss(pred_score, true_score).mean()
         pol_loss = optax.softmax_cross_entropy(logits, search_prob).mean()
         overall_loss = val_loss + pol_loss
-        return overall_loss, next_state
+        return overall_loss, (next_state, val_loss, pol_loss)
 
-    grad_func = jit(value_and_grad(loss_func, has_aux=True))
+    grad_func = jit(grad(loss_func, has_aux=True))
 
     @jit
     def step(feature, true_score, search_prob):
-        (total_loss, next_model_state), gradient = grad_func(
+        gradient, (next_model_state, val_loss, pol_loss) = grad_func(
             params, model_state, feature, true_score, search_prob)
         update, next_opt_state = opt.update(gradient, opt_state, params)
         next_params = optax.apply_updates(params, update)
-        return next_params, next_model_state, total_loss, next_opt_state
+        return next_params, next_model_state, next_opt_state, val_loss, pol_loss
 
-    for index in tqdm(range(total_games)):
-        next_key = rand_gen.next()
-        px_traj, po_traj = self_play(
-            model_params=params, model_state=model_state, PRNGkey=next_key, **self_play_args)
-        replay_buffer.add_traj(px_traj)
-        replay_buffer.add_traj(po_traj)
 
-        if (index + 1) % games_per_train == 0:
-            for _ in range(iterations):
-                feature, search_prob, true_score = replay_buffer.sample_data(
-                    batch_size)
-                next_params, next_model_state, total_loss, next_opt_state = step(
-                    feature, true_score, search_prob)
-                params = next_params
-                model_state = next_model_state
-                opt_state = next_opt_state
-                print(total_loss)
+    for index in tqdm(range(0, total_games, games_per_train)):
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            res = []
+            for _ in range(games_per_train):
+                next_key = rand_gen.next()
+                res.append(executor.submit(self_play, model_params=params,
+                           model_state=model_state, PRNGkey=next_key, **self_play_args))
+
+            for thd in as_completed(res):
+                px_traj, po_traj = thd.result()
+                replay_buffer.add_traj(px_traj)
+                replay_buffer.add_traj(po_traj)
+
+
+        for _ in range(iterations):
+            feature, search_prob, true_score = replay_buffer.sample_data(
+                batch_size)
+            next_params, next_model_state, next_opt_state, val_loss, pol_loss = step(
+                feature, true_score, search_prob)
+            params = next_params
+            model_state = next_model_state
+            opt_state = next_opt_state
+
+            train_steps += 1
+            writer.add_scalar('value loss', val_loss.item(), train_steps)
+            writer.add_scalar('policy loss', pol_loss.item(), train_steps)
+            
 
 
 def main():
