@@ -10,6 +10,7 @@ from env.ultimate_ttt import UltimateTTT
 from jax import grad, jit, random
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+from utils.alphazero_utils import load_checkpoint, save_checkpoint
 
 from alphazero.core import AlphaZero
 from alphazero.model import create_model, init_model
@@ -67,14 +68,8 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
     writer = SummaryWriter(os.path.join(dir_path, 'log'))
 
     if last_ckpt > 0:
-        ckpt_path = os.path.join(dir_path, f'checkpoints/{train_steps}.pickle')
-        with open(ckpt_path, 'rb') as fp:
-            ckpt = dill.load(fp)
-        params = ckpt['params']
-        model_state = ckpt['model_state']
-        opt_state = ckpt['opt_state']
-        replay_buffer = ckpt['replay_buffer']
-        rand_key = ckpt['rand_key']
+        params, model_state, opt_state, replay_buffer, rand_key = load_checkpoint(
+            train_steps, dir_path)
     else:
         params, model_state = init_model(model)
         opt_state = opt.init(params)
@@ -99,7 +94,8 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
         next_params = optax.apply_updates(params, update)
         return next_params, next_model_state, next_opt_state, val_loss, pol_loss
 
-    for index in tqdm(range(0, total_games, games_per_train)):
+    outer_index = 0
+    for _ in tqdm(range(0, total_games, games_per_train)):
         with ThreadPoolExecutor(max_workers=4) as executor:
             res = []
             for _ in range(games_per_train):
@@ -125,21 +121,20 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
             writer.add_scalar('value loss', val_loss.item(), train_steps)
             writer.add_scalar('policy loss', pol_loss.item(), train_steps)
 
-        if (index + 1) % ckpt_frequency == 0:
-            checkpoint = {'params': params, 'model_state': model_state,
-                          'opt_state': opt_state, 'replay_buffer': replay_buffer, 'rand_key': rand_key}
-
-            ckpt_path = os.path.join(
-                dir_path, f'checkpoints/{train_steps}.pickle')
-
-            with open(ckpt_path, 'wb') as fp:
-                dill.dump(checkpoint, fp)
+        if (outer_index + 1) % ckpt_frequency == 0:
+            save_checkpoint(params, model_state, opt_state,
+                            replay_buffer, rand_key, train_steps, dir_path)
+        outer_index += 1
+        
+    # save last checkpoint
+    save_checkpoint(params, model_state, opt_state,
+                    replay_buffer, rand_key, train_steps, dir_path)
 
 
 def main():
     with open(os.path.join(dir_path, 'config.yaml'), 'r') as fp:
         config = yaml.safe_load(fp)
-    train(**config, last_ckpt=70)
+    train(**config, last_ckpt=0)
 
 
 if __name__ == '__main__':
