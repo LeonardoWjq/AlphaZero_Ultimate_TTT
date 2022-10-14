@@ -1,11 +1,12 @@
-total_games: 100
-games_per_train: 2
-iterations: 5
-batch_size: 512
+total_games: 5000
+games_per_train: 25
+iters_per_train: 10
+ckpt_frequency: 2
+batch_size: 1024
 seed: 0
 lr: 1.0e-3
 self_play_args:
-  sim_num: 100
+  sim_num: 500
   explore_factor: 3.5
   temperature: 1.0
   # Dirichlet noise Dir(alpha)
