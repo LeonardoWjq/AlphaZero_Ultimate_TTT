@@ -3,3 +3,4 @@ __pycache__
 venv
 Ultimate_TTT.egg-info
 alphazero/log
+alphazero/checkpoints
