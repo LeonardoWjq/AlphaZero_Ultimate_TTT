@@ -5,22 +5,25 @@ from typing import List
 import dill
 import optax
 import yaml
-from env.macros import *
-from env.ultimate_ttt import UltimateTTT
 from jax import grad, jit, random
+import jax.numpy as jnp
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from utils.alphazero_utils import load_checkpoint, save_checkpoint
 
 from alphazero.core import AlphaZero
 from alphazero.model import create_model, init_model
 from alphazero.record import Record
 from alphazero.replay_buffer import ReplayBuffer
+from env.macros import *
+from env.ultimate_ttt import UltimateTTT
+from utils.alphazero_utils import load_checkpoint, save_checkpoint
+
 
 dir_path = os.path.dirname(__file__)
 
 
-def self_play(model_params: dict, model_state: dict, PRNGkey, sim_num: int, explore_factor: float, temperature: float, alpha: float, epsilon: float):
+def self_play(model_params: dict, model_state: dict, PRNGkey, sim_num: int,
+              explore_factor: float, temperature: float, alpha: float, epsilon: float):
     px = AlphaZero(model_params, model_state, PRNGkey,
                    sim_num, explore_factor, temperature, alpha, epsilon)
     po = AlphaZero(model_params, model_state, PRNGkey,
@@ -60,7 +63,8 @@ def self_play(model_params: dict, model_state: dict, PRNGkey, sim_num: int, expl
     return px_trajectory, po_trajectory
 
 
-def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_frequency: int, lr: float, batch_size, seed: int, self_play_args: dict, last_ckpt: int = 0):
+def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_frequency: int,
+          lr: float, batch_size, seed: int, self_play_args: dict, last_ckpt: int = 0):
     assert last_ckpt >= 0
     model = create_model(True)
     opt = optax.adamw(lr)
@@ -68,16 +72,17 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
     writer = SummaryWriter(os.path.join(dir_path, 'log'))
 
     if last_ckpt > 0:
-        params, model_state, opt_state, replay_buffer, rand_key = load_checkpoint(
+        model_params, model_state, opt_state, replay_buffer, rand_key = load_checkpoint(
             train_steps, dir_path)
     else:
-        params, model_state = init_model(model)
-        opt_state = opt.init(params)
+        model_params, model_state = init_model(model)
+        opt_state = opt.init(model_params)
         replay_buffer = ReplayBuffer(seed)
         rand_key = random.PRNGKey(seed)
 
     @jit
-    def loss_func(params, state, feature, true_score, search_prob):
+    def loss_func(params: dict, state: dict, feature: jnp.ndarray,
+                  true_score: float, search_prob: jnp.ndarray):
         (pred_score, logits), next_state = model.apply(params, state, feature)
         val_loss = optax.l2_loss(pred_score, true_score).mean()
         pol_loss = optax.softmax_cross_entropy(logits, search_prob).mean()
@@ -87,11 +92,13 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
     grad_func = jit(grad(loss_func, has_aux=True))
 
     @jit
-    def step(feature, true_score, search_prob):
-        gradient, (next_model_state, val_loss, pol_loss) = grad_func(
-            params, model_state, feature, true_score, search_prob)
-        update, next_opt_state = opt.update(gradient, opt_state, params)
-        next_params = optax.apply_updates(params, update)
+    def step(model_params: dict, model_state: dict, optim_state: dict,
+             feature: jnp.ndarray, true_score: float, search_prob: jnp.ndarray):
+        gradient, (next_model_state, val_loss, pol_loss) = grad_func(model_params, model_state,
+                                                                     feature, true_score, search_prob)
+        update, next_opt_state = opt.update(
+            gradient, optim_state, model_params)
+        next_params = optax.apply_updates(model_params, update)
         return next_params, next_model_state, next_opt_state, val_loss, pol_loss
 
     outer_index = 0
@@ -100,7 +107,7 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
             res = []
             for _ in range(games_per_train):
                 rand_key, next_key = random.split(rand_key)
-                res.append(executor.submit(self_play, model_params=params,
+                res.append(executor.submit(self_play, model_params=model_params,
                            model_state=model_state, PRNGkey=next_key, **self_play_args))
 
             for thd in as_completed(res):
@@ -111,8 +118,8 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
         for _ in range(iters_per_train):
             feature, search_prob, true_score = replay_buffer.sample_data(
                 batch_size)
-            next_params, next_model_state, next_opt_state, val_loss, pol_loss = step(
-                feature, true_score, search_prob)
+            next_params, next_model_state, next_opt_state, val_loss, pol_loss = step(model_params, model_state, opt_state,
+                                                                                     feature, true_score, search_prob)
             params = next_params
             model_state = next_model_state
             opt_state = next_opt_state
@@ -125,8 +132,7 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
             save_checkpoint(params, model_state, opt_state,
                             replay_buffer, rand_key, train_steps, dir_path)
         outer_index += 1
-        
-    # save last checkpoint
+
     save_checkpoint(params, model_state, opt_state,
                     replay_buffer, rand_key, train_steps, dir_path)
 
