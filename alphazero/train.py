@@ -80,7 +80,6 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
         replay_buffer = ReplayBuffer(seed)
         rand_key = random.PRNGKey(seed)
 
-    @jit
     def loss_func(params: dict, state: dict, feature: jnp.ndarray,
                   true_score: float, search_prob: jnp.ndarray):
         (pred_score, logits), next_state = model.apply(params, state, feature)
