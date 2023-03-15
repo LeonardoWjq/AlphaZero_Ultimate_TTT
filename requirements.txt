@@ -4,6 +4,7 @@ cachetools==5.2.0
 certifi==2022.9.24
 charset-normalizer==2.1.1
 chex==0.1.5
+dill==0.3.5.1
 dm-haiku==0.0.9.dev0
 dm-tree==0.1.7
 etils==0.8.0
@@ -48,7 +49,7 @@ torch-tb-profiler==0.4.0
 torchvision==0.13.1
 tqdm==4.64.1
 typing_extensions==4.3.0
--e git+https://github.com/LeonardoWjq/AlphaZero_Ultimate_TTT.git@e704b7e6c8922f6396b5e88ebc7277fe9e011c2a#egg=Ultimate_TTT
+-e git+https://github.com/LeonardoWjq/AlphaZero_Ultimate_TTT.git@cf7226913c6b46381c348dfdbd0298da86062973#egg=Ultimate_TTT
 urllib3==1.26.12
 Werkzeug==2.2.2
 zipp==3.8.1
