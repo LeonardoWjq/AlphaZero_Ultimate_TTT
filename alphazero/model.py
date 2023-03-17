@@ -3,25 +3,30 @@ import os
 import haiku as hk
 import jax
 import jax.numpy as jnp
-from jax.nn import relu
+from jax.nn import softplus
+
+
+def mish(x: jnp.ndarray):
+    return x*jnp.tanh(softplus(x))
 
 
 class ResBlock(hk.Module):
-    def __init__(self, dim: int, is_train:bool, name: str):
+    def __init__(self, dim: int, is_train: bool, name: str):
         super().__init__(name)
         self.is_train = is_train
 
-        self.conv1 = hk.Conv2D(
-            output_channels=dim//2, kernel_shape=3, data_format='NCHW', name='first_convolution')
-        
-        self.batch_norm = hk.BatchNorm(create_scale=True, create_offset=True,
-                                        decay_rate=0.9, data_format='NCHW', name='internal_batch_norm')
+        self.conv1 = hk.Conv2D(output_channels=dim//2, kernel_shape=3,
+                               data_format='NCHW', name='first_convolution')
 
-        self.conv2 = hk.Conv2D(
-            output_channels=dim, kernel_shape=3, data_format='NCHW', name='second_convolution')
+        self.batch_norm = hk.BatchNorm(create_scale=True, create_offset=True,
+                                       decay_rate=0.9, data_format='NCHW',
+                                       name='internal_batch_norm')
+
+        self.conv2 = hk.Conv2D(output_channels=dim, kernel_shape=3,
+                               data_format='NCHW', name='second_convolution')
 
     def __call__(self, x):
-        residual = relu(self.conv1(x))
+        residual = mish(self.conv1(x))
         residual = self.batch_norm(residual, is_training=self.is_train)
         residual = self.conv2(residual)
         return x + residual
@@ -30,27 +35,26 @@ class ResBlock(hk.Module):
 class ValueHead(hk.Module):
     def __init__(self):
         super().__init__('value_head')
-        self.linear1 = hk.Linear(output_size=256, name='first_linear')
-        self.linear2 = hk.Linear(output_size=256, name='second_linear')
+        self.linear1 = hk.Linear(output_size=128, name='first_linear')
+        self.linear2 = hk.Linear(output_size=64, name='second_linear')
         self.output = hk.Linear(output_size=1, name='output_layer')
 
     def __call__(self, x):
-        x = relu(self.linear1(x))
-        x = relu(self.linear2(x))
+        x = mish(self.linear1(x))
+        x = mish(self.linear2(x))
         return self.output(x)
 
 
 class PolicyHead(hk.Module):
     def __init__(self):
         super().__init__('policy_head')
-        self.linear1 = hk.Linear(output_size=256, name='first_linear')
-        self.linear2 = hk.Linear(output_size=256, name='second_linear')
+        self.linear1 = hk.Linear(output_size=128, name='first_linear')
+        self.linear2 = hk.Linear(output_size=64, name='second_linear')
         self.output = hk.Linear(output_size=81, name='output_layer')
 
     def __call__(self, x):
-        x = relu(self.linear1(x))
-        x = relu(self.linear2(x))
-        # output logits
+        x = mish(self.linear1(x))
+        x = mish(self.linear2(x))
         return self.output(x)
 
 
@@ -62,28 +66,33 @@ class ResNet(hk.Module):
         self.conv = hk.Conv2D(output_channels=8, kernel_shape=3,
                               data_format='NCHW', name='input_convolution')
         self.batch_norm1 = hk.BatchNorm(create_scale=True, create_offset=True,
-                                        decay_rate=0.9, data_format='NCHW', name='input_conv_batch_norm')
+                                        decay_rate=0.9, data_format='NCHW',
+                                        name='input_conv_batch_norm')
 
-        self.resblock1 = ResBlock(dim=8, is_train=is_train, name='first_residual_block')
+        self.resblock1 = ResBlock(dim=8, is_train=is_train,
+                                  name='first_residual_block')
         self.batch_norm2 = hk.BatchNorm(create_scale=True, create_offset=True,
-                                        decay_rate=0.9, data_format='NCHW', name='first_resblock_batch_norm')
+                                        decay_rate=0.9, data_format='NCHW',
+                                        name='first_resblock_batch_norm')
 
-        self.resblock2 = ResBlock(dim=8, is_train=is_train, name='second_residual_block')
+        self.resblock2 = ResBlock(dim=8, is_train=is_train, 
+                                  name='second_residual_block')
         self.batch_norm3 = hk.BatchNorm(create_scale=True, create_offset=True,
-                                        decay_rate=0.9, data_format='NCHW', name='second_resblock_batch_norm')
+                                        decay_rate=0.9, data_format='NCHW',
+                                        name='second_resblock_batch_norm')
 
         self.flatten = hk.Flatten(name='flatten')
         self.value_head = ValueHead()
         self.policy_head = PolicyHead()
 
     def __call__(self, x):
-        x = relu(self.conv(x))
+        x = mish(self.conv(x))
         x = self.batch_norm1(x, is_training=self.is_train)
 
-        x = relu(self.resblock1(x))
+        x = mish(self.resblock1(x))
         x = self.batch_norm2(x, is_training=self.is_train)
 
-        x = relu(self.resblock2(x))
+        x = mish(self.resblock2(x))
         x = self.batch_norm3(x, is_training=self.is_train)
 
         feature = self.flatten(x)
