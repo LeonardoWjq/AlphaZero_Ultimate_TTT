@@ -1,12 +1,12 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from time import time
 from typing import List
 
-import dill
+import jax.numpy as jnp
 import optax
 import yaml
 from jax import grad, jit, random
-import jax.numpy as jnp
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -17,7 +17,6 @@ from alphazero.replay_buffer import ReplayBuffer
 from env.macros import *
 from env.ultimate_ttt import UltimateTTT
 from utils.alphazero_utils import load_checkpoint, save_checkpoint
-
 
 dir_path = os.path.dirname(__file__)
 
@@ -72,13 +71,16 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
     writer = SummaryWriter(os.path.join(dir_path, 'log'))
 
     if last_ckpt > 0:
-        model_params, model_state, opt_state, replay_buffer, rand_key = load_checkpoint(
+        learner_params, learner_state, opt_state, replay_buffer, rand_key = load_checkpoint(
             train_steps, dir_path)
     else:
-        model_params, model_state = init_model(model)
-        opt_state = opt.init(model_params)
+        learner_params, learner_state = init_model(model)
+        opt_state = opt.init(learner_params)
         replay_buffer = ReplayBuffer(seed)
         rand_key = random.PRNGKey(seed)
+    
+    actor_params = learner_params
+    actor_state = learner_state
 
     def loss_func(params: dict, state: dict, feature: jnp.ndarray,
                   true_score: float, search_prob: jnp.ndarray):
@@ -102,37 +104,43 @@ def train(total_games: int, games_per_train: int, iters_per_train: int, ckpt_fre
 
     outer_index = 0
     for _ in tqdm(range(0, total_games, games_per_train)):
+        self_play_start = time()
         with ThreadPoolExecutor(max_workers=4) as executor:
             res = []
             for _ in range(games_per_train):
                 rand_key, next_key = random.split(rand_key)
-                res.append(executor.submit(self_play, model_params=model_params,
-                           model_state=model_state, PRNGkey=next_key, **self_play_args))
+                res.append(executor.submit(self_play, model_params=actor_params,
+                           model_state=actor_state, PRNGkey=next_key, **self_play_args))
 
             for thd in as_completed(res):
                 px_traj, po_traj = thd.result()
                 replay_buffer.add_traj(px_traj)
                 replay_buffer.add_traj(po_traj)
+        print('self-play time: ', time() - self_play_start)
 
+        training_start = time()
         for _ in range(iters_per_train):
-            feature, search_prob, true_score = replay_buffer.sample_data(
-                batch_size)
-            next_params, next_model_state, next_opt_state, val_loss, pol_loss = step(model_params, model_state, opt_state,
+            feature, search_prob, true_score = replay_buffer.sample_data(batch_size)
+            next_params, next_model_state, next_opt_state, val_loss, pol_loss = step(learner_params, learner_state, opt_state,
                                                                                      feature, true_score, search_prob)
-            params = next_params
-            model_state = next_model_state
+            learner_params = next_params
+            learner_state = next_model_state
             opt_state = next_opt_state
 
             train_steps += 1
             writer.add_scalar('value loss', val_loss.item(), train_steps)
             writer.add_scalar('policy loss', pol_loss.item(), train_steps)
-
+        print('training time: ', time() - training_start)
+        
         if (outer_index + 1) % ckpt_frequency == 0:
-            save_checkpoint(params, model_state, opt_state,
+            save_checkpoint(learner_params, learner_state, opt_state,
                             replay_buffer, rand_key, train_steps, dir_path)
+            actor_params = learner_params
+            actor_state = learner_state
+
         outer_index += 1
 
-    save_checkpoint(params, model_state, opt_state,
+    save_checkpoint(learner_params, learner_state, opt_state,
                     replay_buffer, rand_key, train_steps, dir_path)
 
 
